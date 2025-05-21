@@ -1,8 +1,11 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:url_launcher/url_launcher.dart'; // <-- per url_launcher
 
 import '../models/talk.dart';
+import 'login_screen.dart';
+import 'profile_screen.dart';
 
 class News {
   final String title;
@@ -79,6 +82,15 @@ class _HomePageState extends State<HomePage> {
     return null;
   }
 
+  Future<void> _launchUrl(String url) async {
+    final uri = Uri.parse(url);
+    if (!await canLaunchUrl(uri)) {
+      debugPrint('Could not launch $url');
+      return;
+    }
+    await launchUrl(uri, mode: LaunchMode.externalApplication);
+  }
+
   @override
   Widget build(BuildContext context) {
     final talk = widget.talkToShow;
@@ -93,10 +105,27 @@ class _HomePageState extends State<HomePage> {
               child: Row(
                 children: [
                   IconButton(icon: const Icon(Icons.menu), onPressed: () {}),
+
                   const Spacer(),
+
                   Image.asset('lib/resources/Logo.png', width: 32, height: 32),
+
                   const Spacer(),
-                  const CircleAvatar(radius: 16, child: Icon(Icons.person, size: 18)),
+
+                  // Avatar tappabile che apre LoginScreen
+                  InkWell(
+                    borderRadius: BorderRadius.circular(16),
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const ProfilePage()),
+                      );
+                    },
+                    child: const CircleAvatar(
+                      radius: 16,
+                      child: Icon(Icons.person, size: 18),
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -119,7 +148,9 @@ class _HomePageState extends State<HomePage> {
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 children: [
                   // Talk Card
-                  if (talk != null) _buildTalkCard(talk) else
+                  if (talk != null)
+                    _buildTalkCard(talk)
+                  else
                     const Center(child: Text('Nessun talk trovato.')),
 
                   const SizedBox(height: 16),
@@ -178,9 +209,7 @@ class _HomePageState extends State<HomePage> {
                             ),
                             const SizedBox(height: 12),
                             TextButton(
-                              onPressed: () {
-                                // apri news.url con url_launcher
-                              },
+                              onPressed: () => _launchUrl(news.url),
                               style: TextButton.styleFrom(padding: EdgeInsets.zero),
                               child: const Text(
                                 'Leggi di più',
@@ -232,11 +261,13 @@ class _HomePageState extends State<HomePage> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(label,
-              style: TextStyle(
-                fontWeight: selected ? FontWeight.bold : FontWeight.normal,
-                color: selected ? Colors.black : Colors.grey[700],
-              )),
+          Text(
+            label,
+            style: TextStyle(
+              fontWeight: selected ? FontWeight.bold : FontWeight.normal,
+              color: selected ? Colors.black : Colors.grey[700],
+            ),
+          ),
           const SizedBox(height: 4),
           Container(
             width: 24,
@@ -269,11 +300,15 @@ class _HomePageState extends State<HomePage> {
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(talk.speakers,
-                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                      Text(
+                        talk.speakers,
+                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                      ),
                       const SizedBox(height: 2),
-                      Text('3 min ago',
-                          style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 12)),
+                      Text(
+                        '3 min ago',
+                        style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 12),
+                      ),
                     ],
                   ),
                 ],
@@ -285,12 +320,15 @@ class _HomePageState extends State<HomePage> {
           const SizedBox(height: 12),
 
           // titolo e descrizione
-          Text(talk.title,
-              style: const TextStyle(
-                  color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+          Text(
+            talk.title,
+            style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+          ),
           const SizedBox(height: 8),
-          Text(talk.description,
-              style: const TextStyle(color: Colors.white, fontSize: 14)),
+          Text(
+            talk.description,
+            style: const TextStyle(color: Colors.white, fontSize: 14),
+          ),
 
           const SizedBox(height: 12),
 
@@ -299,8 +337,7 @@ class _HomePageState extends State<HomePage> {
             children: [
               const Icon(Icons.favorite_border, color: Colors.white),
               const SizedBox(width: 6),
-              Text('${talk.duration} likes',
-                  style: const TextStyle(color: Colors.white, fontSize: 12)),
+              Text('${talk.duration} likes', style: const TextStyle(color: Colors.white, fontSize: 12)),
               const SizedBox(width: 16),
               const Icon(Icons.comment, color: Colors.white),
               const SizedBox(width: 6),
