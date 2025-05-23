@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:texpresso/views/home_screen.dart';
 import 'package:texpresso/views/login_screen.dart';
+import 'package:texpresso/views/search_screen.dart';
 
 void main() => runApp(const MyApp());
 

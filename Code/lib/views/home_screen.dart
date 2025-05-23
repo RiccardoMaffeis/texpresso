@@ -1,34 +1,16 @@
+// lib/views/home_page.dart
+
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
-import 'package:url_launcher/url_launcher.dart'; // <-- per url_launcher
+import 'package:url_launcher/url_launcher.dart';
 
 import '../models/talk.dart';
-import 'login_screen.dart';
-import 'profile_screen.dart';
-
-class News {
-  final String title;
-  final String description;
-  final String url;
-  final String? imageUrl;
-
-  News({
-    required this.title,
-    required this.description,
-    required this.url,
-    this.imageUrl,
-  });
-
-  factory News.fromJson(Map<String, dynamic> json) {
-    return News(
-      title: json['title'] as String? ?? '',
-      description: json['description'] as String? ?? '',
-      url: json['url'] as String? ?? '',
-      imageUrl: json['urlToImage'] as String? ?? json['imageUrl'] as String?,
-    );
-  }
-}
+import '../models/News.dart';
+import '../views/login_screen.dart';
+import '../views/profile_screen.dart';
+import '../views/BottomNavBar.dart';
+import '../controller/BottomNavBarController.dart';
 
 class HomePage extends StatefulWidget {
   final Talk? talkToShow;
@@ -41,7 +23,11 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   late Future<News?>? _newsFuture;
   int _selectedTab = 1;
-  int _selectedNav = 0;
+
+  // Controller inizializzato a 0 = Home
+  final BottomNavBarController _navController = BottomNavBarController(
+    initialIndex: 0,
+  );
 
   @override
   void initState() {
@@ -54,41 +40,37 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
+  @override
+  void dispose() {
+    _navController.dispose();
+    super.dispose();
+  }
+
   Future<News?> fetchNews(String tag) async {
     final uri = Uri.parse(
       'https://w8mtzslj7l.execute-api.us-east-1.amazonaws.com/default/Get_newsapi_by_tag',
     );
-    final payload = jsonEncode({'query': tag, 'pages': 1});
-    debugPrint('[fetchNews] POST $uri → $payload');
-
     final res = await http.post(
       uri,
       headers: {'Content-Type': 'application/json'},
-      body: payload,
+      body: jsonEncode({'query': tag, 'pages': 1}),
     );
-    debugPrint('[fetchNews] status: ${res.statusCode}');
-    debugPrint('[fetchNews] body: ${res.body}');
-
     if (res.statusCode == 200) {
       try {
         final data = jsonDecode(res.body);
         if (data is List && data.isNotEmpty) {
           return News.fromJson(data[0] as Map<String, dynamic>);
         }
-      } catch (e) {
-        debugPrint('[fetchNews] JSON parse error: $e');
-      }
+      } catch (_) {}
     }
     return null;
   }
 
   Future<void> _launchUrl(String url) async {
     final uri = Uri.parse(url);
-    if (!await canLaunchUrl(uri)) {
-      debugPrint('Could not launch $url');
-      return;
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
     }
-    await launchUrl(uri, mode: LaunchMode.externalApplication);
   }
 
   @override
@@ -101,26 +83,29 @@ class _HomePageState extends State<HomePage> {
           children: [
             // — Header —
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
               child: Row(
                 children: [
                   IconButton(icon: const Icon(Icons.menu), onPressed: () {}),
-
-                  const Spacer(),
-
-                  Image.asset('lib/resources/Logo.png', width: 32, height: 32),
-
-                  const Spacer(),
-
-                  // Avatar tappabile che apre LoginScreen
+                  Expanded(
+                    child: Center(
+                      child: Image.asset(
+                        'lib/resources/Logo.png',
+                        width: 50,
+                        height: 50,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 19),
                   InkWell(
                     borderRadius: BorderRadius.circular(16),
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (_) => const ProfilePage()),
-                      );
-                    },
+                    onTap:
+                        () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const ProfilePage(),
+                          ),
+                        ),
                     child: const CircleAvatar(
                       radius: 16,
                       child: Icon(Icons.person, size: 18),
@@ -139,7 +124,6 @@ class _HomePageState extends State<HomePage> {
                 _buildTabItem(1, 'For you'),
               ],
             ),
-
             const SizedBox(height: 16),
 
             // — Content —
@@ -147,15 +131,11 @@ class _HomePageState extends State<HomePage> {
               child: ListView(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 children: [
-                  // Talk Card
                   if (talk != null)
                     _buildTalkCard(talk)
                   else
                     const Center(child: Text('Nessun talk trovato.')),
-
                   const SizedBox(height: 16),
-
-                  // News Card
                   FutureBuilder<News?>(
                     future: _newsFuture,
                     builder: (context, snapshot) {
@@ -167,7 +147,9 @@ class _HomePageState extends State<HomePage> {
                       }
                       final news = snapshot.data;
                       if (news == null) {
-                        return const Text('Nessuna news disponibile per questo tag.');
+                        return const Text(
+                          'Nessuna news disponibile per questo tag.',
+                        );
                       }
                       return Container(
                         decoration: BoxDecoration(
@@ -178,7 +160,7 @@ class _HomePageState extends State<HomePage> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            if (news.imageUrl != null && news.imageUrl!.isNotEmpty)
+                            if (news.imageUrl?.isNotEmpty == true)
                               ClipRRect(
                                 borderRadius: BorderRadius.circular(12),
                                 child: Image.network(
@@ -188,9 +170,8 @@ class _HomePageState extends State<HomePage> {
                                   fit: BoxFit.cover,
                                 ),
                               ),
-                            if (news.imageUrl != null && news.imageUrl!.isNotEmpty)
+                            if (news.imageUrl?.isNotEmpty == true)
                               const SizedBox(height: 12),
-
                             Text(
                               news.title,
                               style: const TextStyle(
@@ -210,7 +191,9 @@ class _HomePageState extends State<HomePage> {
                             const SizedBox(height: 12),
                             TextButton(
                               onPressed: () => _launchUrl(news.url),
-                              style: TextButton.styleFrom(padding: EdgeInsets.zero),
+                              style: TextButton.styleFrom(
+                                padding: EdgeInsets.zero,
+                              ),
                               child: const Text(
                                 'Leggi di più',
                                 style: TextStyle(
@@ -232,24 +215,21 @@ class _HomePageState extends State<HomePage> {
       ),
 
       // — Bottom Navigation Bar —
-      bottomNavigationBar: Container(
-        height: 60,
-        decoration: const BoxDecoration(
-          color: Color(0xFFF15A24),
-          borderRadius: BorderRadius.only(
-            topLeft: Radius.circular(16),
-            topRight: Radius.circular(16),
-          ),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceAround,
-          children: [
-            _buildNavItem(0, Icons.home),
-            _buildNavItem(1, Icons.search),
-            _buildNavItem(2, Icons.swap_horiz),
-            _buildNavItem(3, Icons.show_chart),
-          ],
-        ),
+      bottomNavigationBar: CustomBottomNavBar(
+        currentIndex: _navController.selectedIndex,
+        onTap: (idx) {
+          if (idx == 0) {
+            // Passiamo sempre il talk corrente
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(
+                builder: (_) => HomePage(talkToShow: widget.talkToShow),
+              ),
+            );
+          } else {
+            _navController.changeTab(idx, context);
+          }
+        },
       ),
     );
   }
@@ -289,25 +269,33 @@ class _HomePageState extends State<HomePage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // header
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Row(
                 children: [
-                  const CircleAvatar(radius: 16, child: Icon(Icons.person, size: 16)),
+                  const CircleAvatar(
+                    radius: 16,
+                    child: Icon(Icons.person, size: 16),
+                  ),
                   const SizedBox(width: 8),
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
                         talk.speakers,
-                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                       const SizedBox(height: 2),
                       Text(
                         '3 min ago',
-                        style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 12),
+                        style: TextStyle(
+                          color: Colors.white.withOpacity(0.8),
+                          fontSize: 12,
+                        ),
                       ),
                     ],
                   ),
@@ -316,53 +304,39 @@ class _HomePageState extends State<HomePage> {
               const Icon(Icons.more_vert, color: Colors.white),
             ],
           ),
-
           const SizedBox(height: 12),
-
-          // titolo e descrizione
           Text(
             talk.title,
-            style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+            ),
           ),
           const SizedBox(height: 8),
           Text(
             talk.description,
             style: const TextStyle(color: Colors.white, fontSize: 14),
           ),
-
           const SizedBox(height: 12),
-
-          // footer likes/comments
           Row(
             children: [
               const Icon(Icons.favorite_border, color: Colors.white),
               const SizedBox(width: 6),
-              Text('${talk.duration} likes', style: const TextStyle(color: Colors.white, fontSize: 12)),
+              Text(
+                '${talk.duration} likes',
+                style: const TextStyle(color: Colors.white, fontSize: 12),
+              ),
               const SizedBox(width: 16),
               const Icon(Icons.comment, color: Colors.white),
               const SizedBox(width: 6),
-              Text('${talk.tags.length} comments',
-                  style: const TextStyle(color: Colors.white, fontSize: 12)),
+              Text(
+                '${talk.tags.length} comments',
+                style: const TextStyle(color: Colors.white, fontSize: 12),
+              ),
             ],
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildNavItem(int idx, IconData icon) {
-    final selected = _selectedNav == idx;
-    return GestureDetector(
-      onTap: () => setState(() => _selectedNav = idx),
-      child: Container(
-        padding: const EdgeInsets.all(8),
-        decoration: selected
-            ? BoxDecoration(
-                color: Colors.white.withOpacity(0.3),
-                borderRadius: BorderRadius.circular(12),
-              )
-            : null,
-        child: Icon(icon, color: Colors.white),
       ),
     );
   }
