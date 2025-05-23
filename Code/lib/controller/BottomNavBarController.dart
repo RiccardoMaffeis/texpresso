@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 
+
 // Importa qui tutte le tue pagine
 import '../views/home_screen.dart';
 import '../views/search_screen.dart';
+import '../views/trends_screen.dart';
 // ...altre pagine
 
 class BottomNavBarController extends ChangeNotifier {
@@ -15,8 +17,8 @@ class BottomNavBarController extends ChangeNotifier {
   final List<Widget> _pages = [
     HomePage(),
     SearchPage(),
-    Placeholder(), // Sostituisci con la tua pagina 3
     Placeholder(), // Sostituisci con la tua pagina 4
+    TrendsPage(),
   ];
 
   int get selectedIndex => _selectedIndex;
