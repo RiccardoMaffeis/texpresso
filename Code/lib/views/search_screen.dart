@@ -2,7 +2,7 @@
 
 import 'package:flutter/material.dart';
 import '../views/BottomNavBar.dart';
-import '../controller/BottomNavBarController.dart';
+import '../controllers/BottomNavBarController.dart';
 
 class SearchPage extends StatefulWidget {
   const SearchPage({Key? key}) : super(key: key);

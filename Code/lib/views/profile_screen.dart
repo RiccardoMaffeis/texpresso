@@ -58,11 +58,22 @@ class _ProfilePageState extends State<ProfilePage> {
     return Scaffold(
       backgroundColor: bgBeige,
       appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        title: const Text('Profile', style: TextStyle(color: Colors.black)),
-        automaticallyImplyLeading: false,
-      ),
+  backgroundColor: Colors.transparent,
+  elevation: 0,
+  leading: IconButton(
+    icon: const Icon(Icons.arrow_back, color: Colors.black),
+    onPressed: () {
+      Navigator.pop(context);
+      // oppure, se vuoi forzare la Home replacing:
+      // Navigator.pushReplacement(
+      //   context,
+      //   MaterialPageRoute(builder: (_) => HomePage(talkToShow: /* talk */)),
+      // );
+    },
+  ),
+  title: const Text('Profile', style: TextStyle(color: Colors.black)),
+  automaticallyImplyLeading: false, // ora puoi anche rimuovere questa riga
+),
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.only(bottom: 80),
@@ -237,43 +248,6 @@ class _ProfilePageState extends State<ProfilePage> {
               const SizedBox(height: 16),
             ],
           ),
-        ),
-      ),
-
-      // — Bottom Navigation Bar —
-      bottomNavigationBar: Container(
-        height: 60,
-        decoration: BoxDecoration(
-          color: orange,
-          borderRadius: const BorderRadius.only(
-            topLeft: Radius.circular(16),
-            topRight: Radius.circular(16),
-          ),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceAround,
-          children: List.generate(4, (i) {
-            final icons = [
-              Icons.home,
-              Icons.search,
-              Icons.swap_horiz,
-              Icons.show_chart
-            ];
-            final selected = i == _selectedNav;
-            return GestureDetector(
-              onTap: () => setState(() => _selectedNav = i),
-              child: Container(
-                padding: const EdgeInsets.all(8),
-                decoration: selected
-                    ? BoxDecoration(
-                        color: Colors.white.withOpacity(0.3),
-                        borderRadius: BorderRadius.circular(12),
-                      )
-                    : null,
-                child: Icon(icons[i], color: Colors.white),
-              ),
-            );
-          }),
         ),
       ),
     );

@@ -10,7 +10,7 @@ import '../models/News.dart';
 import '../views/login_screen.dart';
 import '../views/profile_screen.dart';
 import '../views/BottomNavBar.dart';
-import '../controller/BottomNavBarController.dart';
+import '../controllers/BottomNavBarController.dart';
 
 class HomePage extends StatefulWidget {
   final Talk? talkToShow;

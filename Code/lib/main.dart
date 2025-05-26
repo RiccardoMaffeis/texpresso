@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:amplify_flutter/amplify_flutter.dart';
 import 'package:amplify_auth_cognito/amplify_auth_cognito.dart';
-import 'package:texpresso/views/registration_screen.dart';
 
 import 'amplifyconfiguration.dart';
 import 'views/login_screen.dart';
@@ -32,7 +31,7 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'MyTEDx',
       theme: ThemeData(primarySwatch: Colors.red),
-      home: const RegistrationScreen(),
+      home: const LoginScreen(),
     );
   }
 }

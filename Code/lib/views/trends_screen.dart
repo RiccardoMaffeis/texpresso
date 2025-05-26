@@ -3,7 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import '../views/BottomNavBar.dart';
-import '../controller/BottomNavBarController.dart';
+import '../controllers/BottomNavBarController.dart';
 
 class TrendsPage extends StatefulWidget {
   const TrendsPage({Key? key}) : super(key: key);

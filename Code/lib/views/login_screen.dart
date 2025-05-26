@@ -1,281 +1,204 @@
 import 'package:flutter/material.dart';
 import 'package:amplify_flutter/amplify_flutter.dart';
 import 'package:amplify_auth_cognito/amplify_auth_cognito.dart';
-
-import '../talk_repository.dart';
-import 'home_screen.dart';
+import 'package:texpresso/talk_repository.dart';
+import 'package:texpresso/views/Registration_screen.dart';
+import 'package:texpresso/views/home_screen.dart';
+import '../models/login_model.dart';
+import '../controllers/login_controller.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({Key? key}) : super(key: key);
-
   @override
   State<LoginScreen> createState() => _LoginScreenState();
 }
 
 class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
-  String email = '';
-  String password = '';
-  bool isLoading = false;
+  late final LoginModel _model;
+  late final LoginController _controller;
+  bool _obscurePassword = true;
 
-  Future<void> _loginWithCredentials() async {
+  @override
+  void initState() {
+    super.initState();
+    _model = LoginModel();
+    _controller = LoginController(_model, context);
+    _redirectIfSignedIn();
+  }
+
+  void _showSnack(String msg) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+  }
+
+  Future<void> _onSubmitCredentials() async {
     if (!_formKey.currentState!.validate()) return;
-
-    setState(() => isLoading = true);
     try {
-      // 1) Autentica con Cognito User Pool
-      final res = await Amplify.Auth.signIn(
-        username: email.trim(),
-        password: password,
-      );
-      if (!res.isSignedIn) {
-        // Se serve conferma email o MFA puoi gestirlo qui
-        throw Exception('Login non completato. Controlla email/MFA.');
-      }
+      await _controller.loginWithCredentials();
+    } catch (e) {
+      _showSnack(e.toString().replaceFirst('Exception: ', ''));
+      setState(() => _model.isLoading = false);
+    }
+  }
 
-      // 2) Continua con la tua logica esistente
+  Future<void> _onSubmitProvider(AuthProvider p) async {
+    try {
+      await _controller.loginWithProvider(p);
+    } catch (e) {
+      _showSnack(e.toString().replaceFirst('Exception: ', ''));
+      setState(() => _model.isLoading = false);
+    }
+  }
+
+  Future<void> _redirectIfSignedIn() async {
+    final session = await Amplify.Auth.fetchAuthSession();
+    if (session.isSignedIn) {
       final talk = await getRandomTalk();
       if (!mounted) return;
-      setState(() => isLoading = false);
-
-      if (talk == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Errore nel recupero del talk')),
-        );
-        return;
-      }
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (_) => HomePage(talkToShow: talk),
-        ),
-      );
-    } on AuthException catch (e) {
-      setState(() => isLoading = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Errore di autenticazione: ${e.message}')),
-      );
-    } catch (e) {
-      setState(() => isLoading = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Errore: $e')),
-      );
-    }
-  }
-
-  Future<void> _loginWithProvider(AuthProvider provider) async {
-    setState(() => isLoading = true);
-    try {
-      final res = await Amplify.Auth.signInWithWebUI(provider: provider);
-      setState(() => isLoading = false);
-
-      if (res.isSignedIn) {
-        // Utente autenticato via Hosted UI: recupera il talk e vai a Home
-        final talk = await getRandomTalk();
-        if (!mounted) return;
-        if (talk == null) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Errore nel recupero del talk')),
-          );
-          return;
-        }
+      if (talk != null) {
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(
-            builder: (_) => HomePage(talkToShow: talk),
-          ),
-        );
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Login non completato')),
+          MaterialPageRoute(builder: (_) => HomePage(talkToShow: talk)),
         );
       }
-    } on AuthException catch (e) {
-      setState(() => isLoading = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Errore social login: ${e.message}')),
-      );
-    }
-  }
-
-  Future<void> _signOut() async {
-    try {
-      await Amplify.Auth.signOut(
-        options: const SignOutOptions(globalSignOut: true),
-      );
-    } on AuthException catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Errore logout: ${e.message}')),
-      );
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final m = _model;
     return Scaffold(
       backgroundColor: const Color(0xFFE6D2B0),
       body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const SizedBox(height: 40),
-                Image.asset('lib/resources/Logo.png', width: 80, height: 80),
-                const SizedBox(height: 16),
-                const Text('TEXPRESSO',
-                    style:
-                        TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 8),
-                Text(
-                  'Create an account\nEnter your email to sign up for this app',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 14, color: Colors.grey[800]),
-                ),
-                const SizedBox(height: 32),
-
-                //––– FORM EMAIL/PASSWORD –––
-                Form(
-                  key: _formKey,
-                  child: Column(children: [
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 24),
+          child: Column(
+            children: [
+              const SizedBox(height: 40),
+              Image.asset('lib/resources/Logo.png', width: 80, height: 80),
+              const SizedBox(height: 16),
+              const Text(
+                'TEXPRESSO',
+                style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 32),
+              Form(
+                key: _formKey,
+                child: Column(
+                  children: [
                     TextFormField(
                       decoration: const InputDecoration(
                         hintText: 'email@domain.com',
                         filled: true,
                         fillColor: Colors.white,
-                        contentPadding:
-                            EdgeInsets.symmetric(vertical: 16, horizontal: 20),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.all(Radius.circular(8)),
-                          borderSide: BorderSide.none,
-                        ),
                       ),
                       keyboardType: TextInputType.emailAddress,
-                      onChanged: (v) => email = v,
-                      validator: (v) =>
-                          v == null || !v.contains('@') ? 'Email non valida' : null,
+                      onChanged: (v) => m.email = v,
+                      validator:
+                          (v) =>
+                              v == null || !v.contains('@')
+                                  ? 'Email not valid'
+                                  : null,
                     ),
                     const SizedBox(height: 16),
                     TextFormField(
-                      decoration: const InputDecoration(
-                        hintText: 'Password (min 6 caratteri)',
+                      obscureText: _obscurePassword,
+                      decoration: InputDecoration(
+                        hintText: 'Password',
                         filled: true,
                         fillColor: Colors.white,
-                        contentPadding:
-                            EdgeInsets.symmetric(vertical: 16, horizontal: 20),
-                        border: OutlineInputBorder(
+                        contentPadding: const EdgeInsets.symmetric(
+                          vertical: 16,
+                          horizontal: 20,
+                        ),
+                        border: const OutlineInputBorder(
                           borderRadius: BorderRadius.all(Radius.circular(8)),
                           borderSide: BorderSide.none,
                         ),
-                      ),
-                      obscureText: true,
-                      onChanged: (v) => password = v,
-                      validator: (v) =>
-                          v == null || v.length < 6 ? 'Password troppo corta' : null,
-                    ),
-                  ]),
-                ),
-                const SizedBox(height: 24),
-
-                //––– BUTTON Continue –––
-                SizedBox(
-                  width: double.infinity,
-                  height: 48,
-                  child: isLoading
-                      ? const Center(child: CircularProgressIndicator())
-                      : ElevatedButton(
-                          onPressed: _loginWithCredentials,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFFF15A24),
-                            foregroundColor: Colors.white,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
+                        suffixIcon: IconButton(
+                          icon: Icon(
+                            _obscurePassword
+                                ? Icons.visibility_off
+                                : Icons.visibility,
                           ),
-                          child: const Text('Continue',
-                              style: TextStyle(fontSize: 16)),
+                          onPressed: () {
+                            setState(
+                              () => _obscurePassword = !_obscurePassword,
+                            );
+                          },
                         ),
-                ),
-                const SizedBox(height: 32),
+                      ),
+                      onChanged: (v) => _model.password = v,
+                      validator:
+                          (v) =>
+                              v == null || v.length < 6
+                                  ? 'Password too short'
+                                  : null,
+                    ),
 
-                //––– Separator “or” –––
-                Row(children: [
-                  Expanded(child: Divider(color: Colors.grey.shade400)),
+                    const SizedBox(height: 24),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 48,
+                      child:
+                          m.isLoading
+                              ? const Center(child: CircularProgressIndicator())
+                              : ElevatedButton(
+                                onPressed: _onSubmitCredentials,
+                                child: const Text('Continue'),
+                              ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Testo “Non hai un account? Registrati”
+                    GestureDetector(
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const RegistrationScreen(),
+                          ),
+                        );
+                      },
+                      child: Text(
+                        "Don't have an account? Sign Up",
+                        style: TextStyle(
+                          color: Colors.blue,
+                          decoration: TextDecoration.underline,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ),
+
+                    const SizedBox(height: 32),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 32),
+              Row(
+                children: [
+                  Expanded(child: Divider()),
                   const Padding(
                     padding: EdgeInsets.symmetric(horizontal: 8),
-                    child: Text('or', style: TextStyle(color: Colors.grey)),
+                    child: Text('or'),
                   ),
-                  Expanded(child: Divider(color: Colors.grey.shade400)),
-                ]),
-                const SizedBox(height: 24),
-
-                //––– Social buttons –––
-                SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton.icon(
-                    onPressed: () => _loginWithProvider(AuthProvider.google),
-                    icon: Image.asset('lib/resources/google-logo.png',
-                        width: 20, height: 20),
-                    label: const Text('Continue with Google'),
-                    style: OutlinedButton.styleFrom(
-                      backgroundColor: Colors.white,
-                      foregroundColor: Colors.black87,
-                      side: BorderSide(color: Colors.grey.shade300),
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton.icon(
-                    onPressed: () => _loginWithProvider(AuthProvider.apple),
-                    icon: const Icon(Icons.apple, size: 20),
-                    label: const Text('Continue with Apple'),
-                    style: OutlinedButton.styleFrom(
-                      backgroundColor: Colors.white,
-                      foregroundColor: Colors.black87,
-                      side: BorderSide(color: Colors.grey.shade300),
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                    ),
-                  ),
-                ),
-
-                const SizedBox(height: 32),
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 16.0),
-                  child: Text.rich(
-                    TextSpan(
-                      text: 'By clicking continue, you agree to our ',
-                      style: TextStyle(fontSize: 12, color: Colors.grey[800]),
-                      children: [
-                        TextSpan(
-                          text: 'Terms of Service',
-                          style: const TextStyle(
-                              decoration: TextDecoration.underline,
-                              color: Colors.blue),
-                        ),
-                        const TextSpan(text: ' and '),
-                        TextSpan(
-                          text: 'Privacy Policy',
-                          style: const TextStyle(
-                              decoration: TextDecoration.underline,
-                              color: Colors.blue),
-                        ),
-                      ],
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                ),
-              ],
-            ),
+                  Expanded(child: Divider()),
+                ],
+              ),
+              const SizedBox(height: 24),
+              OutlinedButton.icon(
+                onPressed: () => _onSubmitProvider(AuthProvider.google),
+                icon: Image.asset('lib/resources/google-logo.png', width: 20),
+                label: const Text('Continue with Google'),
+              ),
+              const SizedBox(height: 12),
+              OutlinedButton.icon(
+                onPressed: () => _onSubmitProvider(AuthProvider.apple),
+                icon: const Icon(Icons.apple),
+                label: const Text('Continue with Apple'),
+              ),
+              const SizedBox(height: 32),
+            ],
           ),
         ),
       ),
