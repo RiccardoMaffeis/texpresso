@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../views/home_screen.dart';
 import '../views/search_screen.dart';
 import '../views/trends_screen.dart';
+import '../views/Feed_screen.dart'; // Sostituisci con la tua quarta pagina
 // ...altre pagine
 
 class BottomNavBarController extends ChangeNotifier {
@@ -17,7 +18,7 @@ class BottomNavBarController extends ChangeNotifier {
   final List<Widget> _pages = [
     HomePage(),
     SearchPage(),
-    Placeholder(), // Sostituisci con la tua pagina 4
+    FeedPage(), // Sostituisci con la tua pagina 4
     TrendsPage(),
   ];
 

@@ -86,7 +86,7 @@ class _HomePageState extends State<HomePage> {
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
               child: Row(
                 children: [
-                  IconButton(icon: const Icon(Icons.menu), onPressed: () {}),
+                  SizedBox(width: 55),
                   Expanded(
                     child: Center(
                       child: Image.asset(
