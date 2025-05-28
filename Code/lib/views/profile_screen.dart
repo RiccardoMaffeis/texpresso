@@ -12,34 +12,39 @@ class ProfilePage extends StatefulWidget {
 }
 
 class _ProfilePageState extends State<ProfilePage> {
-  // Controllers per tutti i campi, incluso nickname ed email
-  final _nicknameController = TextEditingController();
-  final _nomeController = TextEditingController();
-  final _emailController = TextEditingController();
-  final _indirizzoController = TextEditingController();
-  final _paeseController = TextEditingController();
-  final _capController = TextEditingController();
-  final _sessoController = TextEditingController();
-  final _cittaController = TextEditingController();
-  final _segniController = TextEditingController();
+  // Controllers per tutti i campi
+  final _nicknameController   = TextEditingController();
+  final _nomeController       = TextEditingController();
+  final _emailController      = TextEditingController();
+  final _indirizzoController  = TextEditingController();
+  final _paeseController      = TextEditingController();
+  final _capController        = TextEditingController();
+  final _sessoController      = TextEditingController();
+  final _cittaController      = TextEditingController();
+  final _segniController      = TextEditingController();
   final _compleannoController = TextEditingController();
-  final _cognomeController = TextEditingController();
+  final _cognomeController    = TextEditingController();
 
-  // Preferenze inizialmente tutte false
+  // Chiavi fisse per i bit di preferenze
+  static const List<String> _prefsKeys = [
+    'Motori',
+    'Sport',
+    'Politica',
+    'Politica estera',
+    'Mondo',
+    'Animali',
+    'Cultura',
+    'Finanza',
+    'Cronaca nera',
+    'Altro...'
+  ];
+
+  // Mappa delle preferenze
   final Map<String, bool> _preferenze = {
-    'Motori': false,
-    'Sport': false,
-    'Politica': false,
-    'Politica estera': false,
-    'Mondo': false,
-    'Animali': false,
-    'Cultura': false,
-    'Finanza': false,
-    'Cronaca nera': false,
-    'Altro...': false,
+    for (var key in _prefsKeys) key: false,
   };
 
-  bool _loading = true;
+  bool _loading   = true;
   String? _error;
   bool _isEditing = false;
 
@@ -49,35 +54,47 @@ class _ProfilePageState extends State<ProfilePage> {
     _loadUserAttributes();
   }
 
-  void main() async {
-    WidgetsFlutterBinding.ensureInitialized();
-    await Amplify.addPlugin(AmplifyAuthCognito());
-    await Amplify.configure(amplifyconfig);
-    runApp(const ProfilePage());
+  /// Calcola il bitmask da salvare in Cognito (custom:preferences)
+  int _computePreferencesMask() {
+    int mask = 0;
+    for (var i = 0; i < _prefsKeys.length; i++) {
+      if (_preferenze[_prefsKeys[i]] == true) {
+        mask |= (1 << i);
+      }
+    }
+    return mask;
   }
 
   Future<void> _loadUserAttributes() async {
     try {
       final attrs = await Amplify.Auth.fetchUserAttributes();
-      final data = {
-        for (var a in attrs) a.userAttributeKey.toString(): a.value,
-      };
-      setState(() {
-        _nicknameController.text = data['nickname'] ?? '';
-        _nomeController.text = data['name'] ?? '';
-        _compleannoController.text = data['birthdate'] ?? '';
-        _emailController.text = data['email'] ?? '';
-        _indirizzoController.text = data['address'] ?? '';
-        _paeseController.text = data['city'] ?? '';
-        _capController.text = data['custom:cap'] ?? '';
-        _sessoController.text = data['gender'] ?? '';
-        _cittaController.text = data['custom:citta'] ?? '';
-        _segniController.text = data['custom:segni'] ?? '';
-        _loading = false;
-      });
+      final data = { for (var a in attrs) a.userAttributeKey.toString(): a.value };
+
+      // Popola i campi standard
+      _nicknameController.text   = data['nickname'] ?? '';
+      _nomeController.text       = data['name']     ?? '';
+      _compleannoController.text = data['birthdate'] ?? '';
+      _emailController.text      = data['email']    ?? '';
+      _indirizzoController.text  = data['address']  ?? '';
+      _paeseController.text      = data['city']     ?? '';
+      _capController.text        = data['custom:cap']    ?? '';
+      _sessoController.text      = data['gender']   ?? '';
+      _cittaController.text      = data['custom:citta']  ?? '';
+      _segniController.text      = data['custom:segni']  ?? '';
+
+      // Decodifica custom:preferences
+      final prefsStr = data['custom:preferences'];
+      if (prefsStr != null && prefsStr.isNotEmpty) {
+        final mask = int.tryParse(prefsStr) ?? 0;
+        for (var i = 0; i < _prefsKeys.length; i++) {
+          _preferenze[_prefsKeys[i]] = ((mask >> i) & 1) == 1;
+        }
+      }
+
+      setState(() => _loading = false);
     } on AuthException catch (e) {
       setState(() {
-        _error = e.message;
+        _error   = e.message;
         _loading = false;
       });
     }
@@ -86,7 +103,7 @@ class _ProfilePageState extends State<ProfilePage> {
   Future<void> _saveChanges() async {
     setState(() => _loading = true);
     try {
-      // Aggiorno solo campi modificabili (nickname/email non editabili)
+      // Aggiorno attributi Cognito
       await Amplify.Auth.updateUserAttribute(
         userAttributeKey: CognitoUserAttributeKey.name,
         value: _nomeController.text.trim(),
@@ -95,28 +112,33 @@ class _ProfilePageState extends State<ProfilePage> {
         userAttributeKey: CognitoUserAttributeKey.birthdate,
         value: _compleannoController.text.trim(),
       );
-      // gender è standard
       await Amplify.Auth.updateUserAttribute(
         userAttributeKey: CognitoUserAttributeKey.gender,
         value: _sessoController.text.trim(),
       );
       await Amplify.Auth.updateUserAttribute(
         userAttributeKey: CognitoUserAttributeKey.nickname,
-        value: _nomeController.text.trim(),
+        value: _nicknameController.text.trim(),
       );
       await Amplify.Auth.updateUserAttribute(
         userAttributeKey: CognitoUserAttributeKey.address,
         value: _indirizzoController.text.trim(),
       );
-      // eventualmente salvare preferenze insieme se necessario
+
+      // Salvo il bitmask delle preferenze in custom:preferences
+      final mask = _computePreferencesMask().toString();
+      await Amplify.Auth.updateUserAttribute(
+        userAttributeKey: const CognitoUserAttributeKey.custom('preferences'),
+        value: mask,
+      );
 
       setState(() {
         _isEditing = false;
-        _loading = false;
+        _loading   = false;
       });
     } on AuthException catch (e) {
       setState(() {
-        _error = 'Salvataggio fallito: ${e.message}';
+        _error   = 'Salvataggio fallito: ${e.message}';
         _loading = false;
       });
     }
@@ -126,57 +148,46 @@ class _ProfilePageState extends State<ProfilePage> {
   Widget build(BuildContext context) {
     const bgBeige = Color(0xFFE6D2B0);
     const cardTeal = Color(0xFF00897B);
-    const orange = Color(0xFFF15A24);
+    const orange   = Color(0xFFF15A24);
 
     if (_loading) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
     }
     if (_error != null) {
       return Scaffold(
         body: Center(
-          child: Text(
-            'Errore: $_error',
-            style: const TextStyle(color: Colors.red),
-          ),
+          child: Text('Errore: $_error', style: const TextStyle(color: Colors.red)),
         ),
       );
     }
 
-    Widget buildField(
-      String label,
-      TextEditingController ctl, {
-      bool editable = true,
-    }) {
+    Widget buildField(String label, TextEditingController ctl, { bool editable = true }) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            label,
+          Text(label,
             style: const TextStyle(
               color: Color.fromARGB(255, 249, 152, 66),
-              fontSize: 16,
-              fontWeight: FontWeight.w800,
+              fontSize: 20, fontWeight: FontWeight.w800,
             ),
           ),
           const SizedBox(height: 4),
           if (!_isEditing || !editable)
-            Text(
-              ctl.text,
-              style: const TextStyle(color: Colors.white, fontSize: 14),
-            )
+            Text(ctl.text, style: const TextStyle(color: Colors.white, fontSize: 16))
           else
             TextField(
               controller: ctl,
               style: const TextStyle(color: Colors.white),
               decoration: const InputDecoration(
                 isDense: true,
-                contentPadding: EdgeInsets.symmetric(
-                  vertical: 8,
-                  horizontal: 12,
-                ),
+                contentPadding: EdgeInsets.symmetric(vertical: 8, horizontal: 12),
                 filled: true,
                 fillColor: Color(0xFF01675B),
-                border: OutlineInputBorder(borderRadius: BorderRadius.zero),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.all(Radius.circular(15)),
+                ),
               ),
             ),
         ],
@@ -193,8 +204,13 @@ class _ProfilePageState extends State<ProfilePage> {
           onPressed: () => Navigator.pop(context),
         ),
         title: Text(
-          _isEditing ? 'Modifica profilo' : 'Profilo utente',
-          style: const TextStyle(color: Colors.black),
+          _isEditing
+            ? 'Modifica profilo'
+            : (_nicknameController.text.isNotEmpty
+                ? _nicknameController.text
+                : 'Profilo utente'
+              ),
+          style: const TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
         ),
       ),
       body: SafeArea(
@@ -203,7 +219,6 @@ class _ProfilePageState extends State<ProfilePage> {
           child: Align(
             alignment: Alignment.center,
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 const SizedBox(height: 16),
                 const CircleAvatar(
@@ -212,6 +227,7 @@ class _ProfilePageState extends State<ProfilePage> {
                   child: Icon(Icons.person, size: 60, color: Colors.white),
                 ),
                 const SizedBox(height: 16),
+
                 // Info Card
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 50),
@@ -226,7 +242,7 @@ class _ProfilePageState extends State<ProfilePage> {
                       children: [
                         buildField('Nome e Cognome:', _nomeController),
                         const SizedBox(height: 12),
-                        buildField('Email:', _emailController),
+                        buildField('Email:', _emailController, editable: false),
                         const SizedBox(height: 12),
                         buildField('Compleanno:', _compleannoController),
                         const SizedBox(height: 12),
@@ -237,6 +253,7 @@ class _ProfilePageState extends State<ProfilePage> {
                     ),
                   ),
                 ),
+
                 const SizedBox(height: 24),
                 // Preferenze
                 Padding(
@@ -250,72 +267,30 @@ class _ProfilePageState extends State<ProfilePage> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
-                          'Preferenze:',
+                        const Text('Preferenze:',
                           style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
+                            color: Color.fromARGB(255, 249, 152, 66),
+                            fontSize: 20, fontWeight: FontWeight.bold,
                           ),
                         ),
-                        const SizedBox(height: 12),
-                        Column(
-                          spacing: 8,
-                          children:
-                              _preferenze.keys.map((label) {
-                                return SizedBox(
-                                  width:
-                                      (MediaQuery.of(context).size.width - 64) /
-                                      2,
-                                  child: CheckboxListTile(
-                                    title: Text(
-                                      label,
-                                      style: const TextStyle(
-                                        color: Colors.white,
-                                      ),
-                                    ),
-                                    controlAffinity:
-                                        ListTileControlAffinity.leading,
-                                    contentPadding: EdgeInsets.zero,
-                                    activeColor: orange,
-                                    checkColor: Colors.white,
-                                    value: _preferenze[label],
-                                    onChanged:
-                                        _isEditing
-                                            ? (v) => setState(
-                                              () =>
-                                                  _preferenze[label] =
-                                                      v ?? false,
-                                            )
-                                            : null,
-                                  ),
-                                );
-                              }).toList(),
-                        ),
+                        const SizedBox(height: 16),
+                        buildTwoColumnCheckboxes(cardTeal, orange),
                       ],
                     ),
                   ),
                 ),
+
                 const SizedBox(height: 24),
                 // Bottone Modifica/Salva
                 ElevatedButton(
                   style: ElevatedButton.styleFrom(
                     backgroundColor: orange,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 40,
-                      vertical: 12,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                   ),
-                  onPressed:
-                      _isEditing
-                          ? _saveChanges
-                          : () => setState(() => _isEditing = true),
-                  child: Text(
-                    _isEditing ? 'Salva' : 'Modifica profilo',
-                    style: const TextStyle(fontSize: 16, color: Colors.white),
+                  onPressed: _isEditing ? _saveChanges : () => setState(() => _isEditing = true),
+                  child: Text(_isEditing ? 'Salva' : 'Modifica profilo',
+                    style: const TextStyle(color: Colors.white, fontSize: 16),
                   ),
                 ),
                 const SizedBox(height: 16),
@@ -324,6 +299,57 @@ class _ProfilePageState extends State<ProfilePage> {
           ),
         ),
       ),
+    );
+  }
+
+  /// Genera due colonne di checkbox
+  Widget buildTwoColumnCheckboxes(Color cardTeal, Color orange) {
+    final labels    = _prefsKeys;
+    final mid       = (labels.length / 2).ceil();
+    final leftKeys  = labels.sublist(0, mid);
+    final rightKeys = labels.sublist(mid);
+
+    Widget buildCheckbox(String key) {
+      return Row(
+        children: [
+          Checkbox(
+            shape: RoundedRectangleBorder(
+              side: BorderSide(
+                color: _preferenze[key]! ? orange : Colors.white,
+                width: 2,
+              ),
+              borderRadius: BorderRadius.circular(4),
+            ),
+            fillColor: MaterialStateProperty.resolveWith((states) {
+              if (states.contains(MaterialState.selected)) return orange;
+              return cardTeal;
+            }),
+            checkColor: Colors.white,
+            value: _preferenze[key],
+            onChanged: _isEditing
+              ? (v) => setState(() => _preferenze[key] = v ?? false)
+              : null,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              key,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(color: Colors.white),
+            ),
+          ),
+        ],
+      );
+    }
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(child: Column(children: leftKeys.map(buildCheckbox).toList())),
+        const SizedBox(width: 16),
+        Expanded(child: Column(children: rightKeys.map(buildCheckbox).toList())),
+      ],
     );
   }
 
