@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:amplify_flutter/amplify_flutter.dart';
 import 'package:amplify_auth_cognito/amplify_auth_cognito.dart';
+import 'package:texpresso/views/Swipe_Talk_Screem.dart';
 
 import 'amplifyconfiguration.dart';
 import 'views/login_screen.dart';

@@ -1,7 +1,6 @@
 // lib/views/home_page.dart
 
 import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:html/parser.dart' show parse;
 import 'package:http/http.dart' as http;
@@ -29,6 +28,7 @@ class _HomePageState extends State<HomePage> {
     initialIndex: 0,
   );
   int _selectedTab = 1;
+  bool _isDescriptionExpanded = false;
 
   @override
   void initState() {
@@ -166,7 +166,9 @@ class _HomePageState extends State<HomePage> {
                       }
                       final news = snap.data;
                       if (news == null) {
-                        return const Text('Nessuna news disponibile per questo tag.');
+                        return const Text(
+                          'Nessuna news disponibile per questo tag.',
+                        );
                       }
                       return _buildNewsCard(news);
                     },
@@ -198,7 +200,10 @@ class _HomePageState extends State<HomePage> {
   Widget _buildTabItem(int idx, String label) {
     final selected = _selectedTab == idx;
     return GestureDetector(
-      onTap: () => setState(() => _selectedTab = idx),
+      onTap: () => setState(() {
+        _selectedTab = idx;
+        _isDescriptionExpanded = false;
+      }),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -311,19 +316,38 @@ class _HomePageState extends State<HomePage> {
             ],
           ),
           const SizedBox(height: 12),
-          Text(talk.title,
-              style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+          Text(
+            talk.title,
+            style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+          ),
           const SizedBox(height: 8),
-          Text(talk.description, style: const TextStyle(color: Colors.white, fontSize: 14)),
+          // Descrizione espandibile
+          GestureDetector(
+            onTap: () => setState(() => _isDescriptionExpanded = !_isDescriptionExpanded),
+            child: Text(
+              talk.description,
+              style: const TextStyle(color: Colors.white, fontSize: 14),
+              maxLines: _isDescriptionExpanded ? null : 3,
+              overflow: _isDescriptionExpanded ? TextOverflow.visible : TextOverflow.ellipsis,
+            ),
+          ),
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton(
+              onPressed: () => setState(() => _isDescriptionExpanded = !_isDescriptionExpanded),
+              child: Text(
+                _isDescriptionExpanded ? 'Mostra meno' : 'Leggi altro',
+                style: const TextStyle(color: Colors.white70),
+              ),
+            ),
+          ),
           const SizedBox(height: 12),
-
           // Embed ufficiale TED
           SizedBox(
             height: 200,
             child: TalkVideoEmbed(url: embedUrl),
           ),
           const SizedBox(height: 12),
-
           Row(
             children: [
               const Icon(Icons.favorite_border, color: Colors.white),

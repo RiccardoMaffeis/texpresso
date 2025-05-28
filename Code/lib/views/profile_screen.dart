@@ -27,22 +27,12 @@ class _ProfilePageState extends State<ProfilePage> {
 
   // Chiavi fisse per i bit di preferenze
   static const List<String> _prefsKeys = [
-    'Motori',
-    'Sport',
-    'Politica',
-    'Politica estera',
-    'Mondo',
-    'Animali',
-    'Cultura',
-    'Finanza',
-    'Cronaca nera',
-    'Altro...'
+    'Motori', 'Sport', 'Politica', 'Politica estera', 'Mondo', 'Animali',
+    'Cultura', 'Finanza', 'Cronaca nera', 'Altro...'
   ];
 
   // Mappa delle preferenze
-  final Map<String, bool> _preferenze = {
-    for (var key in _prefsKeys) key: false,
-  };
+  final Map<String, bool> _preferenze = { for (var key in _prefsKeys) key: false };
 
   bool _loading   = true;
   String? _error;
@@ -144,6 +134,21 @@ class _ProfilePageState extends State<ProfilePage> {
     }
   }
 
+  /// Effettua il logout globale
+  Future<void> _signOut() async {
+    try {
+      await Amplify.Auth.signOut(
+        options: const SignOutOptions(globalSignOut: true),
+      );
+      // Dopo il logout, torna alla schermata di login
+      if (mounted) Navigator.of(context).popUntil((route) => route.isFirst);
+    } on AuthException catch (e) {
+      setState(() {
+        _error = 'Errore logout: ${e.message}';
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     const bgBeige = Color(0xFFE6D2B0);
@@ -225,6 +230,18 @@ class _ProfilePageState extends State<ProfilePage> {
                   radius: 60,
                   backgroundColor: Colors.grey,
                   child: Icon(Icons.person, size: 60, color: Colors.white),
+                ),
+                const SizedBox(height: 12),
+                // Logout Button
+                ElevatedButton.icon(
+                  onPressed: _signOut,
+                  icon: const Icon(Icons.logout, color: Colors.white),
+                  label: const Text('Logout', style: TextStyle(fontSize: 16)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: orange,
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
                 ),
                 const SizedBox(height: 16),
 
