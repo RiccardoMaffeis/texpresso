@@ -1,16 +1,19 @@
 // lib/views/home_page.dart
 
 import 'dart:convert';
+
 import 'package:flutter/material.dart';
+import 'package:html/parser.dart' show parse;
 import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
 
 import '../models/talk.dart';
-import '../models/News.dart';
+import '../models/news.dart';
 import '../views/login_screen.dart';
 import '../views/profile_screen.dart';
 import '../views/BottomNavBar.dart';
 import '../controllers/BottomNavBarController.dart';
+import '../controllers/Talk_Video_Controller.dart';
 
 class HomePage extends StatefulWidget {
   final Talk? talkToShow;
@@ -21,23 +24,19 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  late Future<News?>? _newsFuture;
-  int _selectedTab = 1;
-
-  // Controller inizializzato a 0 = Home
+  Future<News?>? _newsFuture;
   final BottomNavBarController _navController = BottomNavBarController(
     initialIndex: 0,
   );
+  int _selectedTab = 1;
 
   @override
   void initState() {
     super.initState();
     final tags = widget.talkToShow?.tags;
-    if (tags != null && tags.isNotEmpty) {
-      _newsFuture = fetchNews(tags.first);
-    } else {
-      _newsFuture = Future.value(null);
-    }
+    _newsFuture = (tags != null && tags.isNotEmpty)
+        ? fetchNews(tags.first)
+        : Future.value(null);
   }
 
   @override
@@ -50,20 +49,40 @@ class _HomePageState extends State<HomePage> {
     final uri = Uri.parse(
       'https://w8mtzslj7l.execute-api.us-east-1.amazonaws.com/default/Get_newsapi_by_tag',
     );
-    final res = await http.post(
-      uri,
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({'query': tag, 'pages': 1}),
-    );
-    if (res.statusCode == 200) {
-      try {
-        final data = jsonDecode(res.body);
-        if (data is List && data.isNotEmpty) {
-          return News.fromJson(data[0] as Map<String, dynamic>);
+    final res = await http.post(uri,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'query': tag, 'pages': 1}));
+    if (res.statusCode != 200) return null;
+
+    try {
+      final data = jsonDecode(res.body);
+      if (data is List && data.isNotEmpty) {
+        final news = News.fromJson(data[0] as Map<String, dynamic>);
+        if (news.url.isNotEmpty) {
+          final img = await fetchArticleImage(news.url);
+          if (img != null && img.isNotEmpty) {
+            news.imageUrl = img;
+          }
         }
-      } catch (_) {}
-    }
+        return news;
+      }
+    } catch (_) {}
     return null;
+  }
+
+  Future<String?> fetchArticleImage(String url) async {
+    final resp = await http.get(Uri.parse(url));
+    if (resp.statusCode != 200) return null;
+    final doc = parse(resp.body);
+
+    final og = doc.querySelector('meta[property="og:image"]');
+    if (og != null) return og.attributes['content'];
+
+    final linkImg = doc.querySelector('link[rel="image_src"]');
+    if (linkImg != null) return linkImg.attributes['href'];
+
+    final img = doc.querySelector('main img') ?? doc.querySelector('body img');
+    return img?.attributes['src'];
   }
 
   Future<void> _launchUrl(String url) async {
@@ -76,6 +95,9 @@ class _HomePageState extends State<HomePage> {
   @override
   Widget build(BuildContext context) {
     final talk = widget.talkToShow;
+    final minutesAgo =
+        talk != null ? DateTime.now().difference(talk.createdAt).inMinutes : 0;
+
     return Scaffold(
       backgroundColor: const Color(0xFFE6D2B0),
       body: SafeArea(
@@ -86,7 +108,7 @@ class _HomePageState extends State<HomePage> {
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
               child: Row(
                 children: [
-                  SizedBox(width: 55),
+                  const SizedBox(width: 55),
                   Expanded(
                     child: Center(
                       child: Image.asset(
@@ -99,13 +121,10 @@ class _HomePageState extends State<HomePage> {
                   const SizedBox(width: 19),
                   InkWell(
                     borderRadius: BorderRadius.circular(16),
-                    onTap:
-                        () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const ProfilePage(),
-                          ),
-                        ),
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const ProfilePage()),
+                    ),
                     child: const CircleAvatar(
                       radius: 16,
                       child: Icon(Icons.person, size: 18),
@@ -132,79 +151,24 @@ class _HomePageState extends State<HomePage> {
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 children: [
                   if (talk != null)
-                    _buildTalkCard(talk)
+                    _buildTalkCard(talk, minutesAgo)
                   else
                     const Center(child: Text('Nessun talk trovato.')),
                   const SizedBox(height: 16),
                   FutureBuilder<News?>(
                     future: _newsFuture,
-                    builder: (context, snapshot) {
-                      if (snapshot.connectionState != ConnectionState.done) {
+                    builder: (context, snap) {
+                      if (snap.connectionState != ConnectionState.done) {
                         return const Center(child: CircularProgressIndicator());
                       }
-                      if (snapshot.hasError) {
-                        return Text('Errore: ${snapshot.error}');
+                      if (snap.hasError) {
+                        return Text('Errore: ${snap.error}');
                       }
-                      final news = snapshot.data;
+                      final news = snap.data;
                       if (news == null) {
-                        return const Text(
-                          'Nessuna news disponibile per questo tag.',
-                        );
+                        return const Text('Nessuna news disponibile per questo tag.');
                       }
-                      return Container(
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF0277BD),
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        padding: const EdgeInsets.all(16),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            if (news.imageUrl?.isNotEmpty == true)
-                              ClipRRect(
-                                borderRadius: BorderRadius.circular(12),
-                                child: Image.network(
-                                  news.imageUrl!,
-                                  height: 180,
-                                  width: double.infinity,
-                                  fit: BoxFit.cover,
-                                ),
-                              ),
-                            if (news.imageUrl?.isNotEmpty == true)
-                              const SizedBox(height: 12),
-                            Text(
-                              news.title,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              news.description,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 14,
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-                            TextButton(
-                              onPressed: () => _launchUrl(news.url),
-                              style: TextButton.styleFrom(
-                                padding: EdgeInsets.zero,
-                              ),
-                              child: const Text(
-                                'Leggi di più',
-                                style: TextStyle(
-                                  decoration: TextDecoration.underline,
-                                  color: Colors.white70,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      );
+                      return _buildNewsCard(news);
                     },
                   ),
                 ],
@@ -219,12 +183,9 @@ class _HomePageState extends State<HomePage> {
         currentIndex: _navController.selectedIndex,
         onTap: (idx) {
           if (idx == 0) {
-            // Passiamo sempre il talk corrente
             Navigator.pushReplacement(
               context,
-              MaterialPageRoute(
-                builder: (_) => HomePage(talkToShow: widget.talkToShow),
-              ),
+              MaterialPageRoute(builder: (_) => HomePage(talkToShow: talk)),
             );
           } else {
             _navController.changeTab(idx, context);
@@ -259,7 +220,65 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  Widget _buildTalkCard(Talk talk) {
+  Widget _buildNewsCard(News news) {
+    return Container(
+      decoration: BoxDecoration(
+        color: const Color(0xFF0277BD),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (news.imageUrl?.isNotEmpty == true) ...[
+            ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: Image.network(
+                news.imageUrl!,
+                height: 180,
+                width: double.infinity,
+                fit: BoxFit.cover,
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
+          Text(
+            news.title,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            news.description,
+            style: const TextStyle(color: Colors.white, fontSize: 14),
+          ),
+          const SizedBox(height: 12),
+          TextButton(
+            onPressed: () => _launchUrl(news.url),
+            style: TextButton.styleFrom(padding: EdgeInsets.zero),
+            child: const Text(
+              'Leggi di più',
+              style: TextStyle(
+                decoration: TextDecoration.underline,
+                color: Colors.white70,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTalkCard(Talk talk, int minutesAgo) {
+    // costruisci l’URL di embed TED
+    final embedUrl = talk.url.replaceFirst(
+      'www.ted.com/talks/',
+      'embed.ted.com/talks/',
+    );
+
     return Container(
       decoration: BoxDecoration(
         color: const Color(0xFF00897B),
@@ -274,29 +293,16 @@ class _HomePageState extends State<HomePage> {
             children: [
               Row(
                 children: [
-                  const CircleAvatar(
-                    radius: 16,
-                    child: Icon(Icons.person, size: 16),
-                  ),
+                  const CircleAvatar(radius: 16, child: Icon(Icons.person, size: 16)),
                   const SizedBox(width: 8),
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        talk.speakers,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
+                      Text(talk.speakers,
+                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                       const SizedBox(height: 2),
-                      Text(
-                        '3 min ago',
-                        style: TextStyle(
-                          color: Colors.white.withOpacity(0.8),
-                          fontSize: 12,
-                        ),
-                      ),
+                      Text('$minutesAgo min ago',
+                          style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 12)),
                     ],
                   ),
                 ],
@@ -305,35 +311,30 @@ class _HomePageState extends State<HomePage> {
             ],
           ),
           const SizedBox(height: 12),
-          Text(
-            talk.title,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
+          Text(talk.title,
+              style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
           const SizedBox(height: 8),
-          Text(
-            talk.description,
-            style: const TextStyle(color: Colors.white, fontSize: 14),
+          Text(talk.description, style: const TextStyle(color: Colors.white, fontSize: 14)),
+          const SizedBox(height: 12),
+
+          // Embed ufficiale TED
+          SizedBox(
+            height: 200,
+            child: TalkVideoEmbed(url: embedUrl),
           ),
           const SizedBox(height: 12),
+
           Row(
             children: [
               const Icon(Icons.favorite_border, color: Colors.white),
               const SizedBox(width: 6),
-              Text(
-                '${talk.duration} likes',
-                style: const TextStyle(color: Colors.white, fontSize: 12),
-              ),
+              Text('${talk.duration} likes',
+                  style: const TextStyle(color: Colors.white, fontSize: 12)),
               const SizedBox(width: 16),
               const Icon(Icons.comment, color: Colors.white),
               const SizedBox(width: 6),
-              Text(
-                '${talk.tags.length} comments',
-                style: const TextStyle(color: Colors.white, fontSize: 12),
-              ),
+              Text('${talk.tags.length} comments',
+                  style: const TextStyle(color: Colors.white, fontSize: 12)),
             ],
           ),
         ],
