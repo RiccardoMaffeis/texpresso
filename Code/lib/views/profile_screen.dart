@@ -3,8 +3,9 @@
 import 'package:flutter/material.dart';
 import 'package:amplify_flutter/amplify_flutter.dart';
 import 'package:amplify_auth_cognito/amplify_auth_cognito.dart';
-import 'package:texpresso/amplifyconfiguration.dart';
-import 'package:texpresso/views/login_screen.dart';
+import '../amplifyconfiguration.dart';
+import '../models/data_cache.dart';
+import '../views/login_screen.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({Key? key}) : super(key: key);
@@ -155,6 +156,8 @@ class _ProfilePageState extends State<ProfilePage> {
       );
       // Dopo il logout, torna alla schermata di login
       if (mounted) {
+        DataCache().clear();
+
         Navigator.of(context).pushAndRemoveUntil(
           MaterialPageRoute(builder: (context) => const LoginScreen()),
           (route) => false,

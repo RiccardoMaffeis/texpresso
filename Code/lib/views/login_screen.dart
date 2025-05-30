@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:amplify_flutter/amplify_flutter.dart';
 import 'package:amplify_auth_cognito/amplify_auth_cognito.dart';
-import 'package:texpresso/talk_repository.dart';
-import 'package:texpresso/views/Registration_screen.dart';
-import 'package:texpresso/views/home_screen.dart';
+import '../talk_repository.dart';
+import '../views/Registration_screen.dart';
+import '../views/home_screen.dart';
 import '../models/login_model.dart';
 import '../controllers/login_controller.dart';
 

@@ -4,7 +4,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:html/parser.dart' show parse;
-import 'package:texpresso/views/home_screen.dart';
+import '../views/home_screen.dart';
 
 import '../models/talk.dart';
 import '../controllers/Talk_Video_Controller.dart';
