@@ -59,8 +59,8 @@ class _FeedPageState extends State<FeedPage> {
     child: Padding(
       padding: const EdgeInsets.all(16),
       child: Text(
-        'Si è verificato un errore durante il caricamento.\n'
-        'Controlla la connessione e riprova più tardi.',
+        'Error during loading.\n'
+        'Check connection, try again.',
         style: const TextStyle(color: Colors.red),
         textAlign: TextAlign.center,
       ),
@@ -182,7 +182,7 @@ class FeedItemView extends StatelessWidget {
                     borderRadius: BorderRadius.circular(8),
                   ),
                 ),
-                child: const Text('Segui'), // correggi anche “Tex” → “Text”
+                child: const Text('Follow'), // correggi anche “Tex” → “Text”
               ),
             ),
         ],

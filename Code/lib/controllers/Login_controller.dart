@@ -25,13 +25,9 @@ class LoginController {
       if (!res.isSignedIn) {
         throw Exception('Login non completato. Controlla email/MFA.');
       }
-      final talk = await getRandomTalk();
-      if (talk == null) {
-        throw Exception('Errore nel recupero del talk');
-      }
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (_) => HomePage(talkToShow: talk)),
+        MaterialPageRoute(builder: (_) => HomePage()),
       );
     } on AuthException catch (e) {
       throw Exception('Errore di autenticazione: ${e.message}');
@@ -47,13 +43,9 @@ class LoginController {
       if (!res.isSignedIn) {
         throw Exception('Login non completato');
       }
-      final talk = await getRandomTalk();
-      if (talk == null) {
-        throw Exception('Errore nel recupero del talk');
-      }
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (_) => HomePage(talkToShow: talk)),
+        MaterialPageRoute(builder: (_) => HomePage()),
       );
     } on AuthException catch (e) {
       throw Exception('Errore social login: ${e.message}');

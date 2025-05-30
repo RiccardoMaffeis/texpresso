@@ -53,14 +53,14 @@ class _LoginScreenState extends State<LoginScreen> {
   Future<void> _redirectIfSignedIn() async {
     final session = await Amplify.Auth.fetchAuthSession();
     if (session.isSignedIn) {
-      final talk = await getRandomTalk();
+      
       if (!mounted) return;
-      if (talk != null) {
+     
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (_) => HomePage(talkToShow: talk)),
+          MaterialPageRoute(builder: (_) => HomePage()),
         );
-      }
+
     }
   }
 

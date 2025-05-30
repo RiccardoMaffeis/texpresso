@@ -6,11 +6,13 @@ class DataCache {
   static final DataCache _instance = DataCache._();
   factory DataCache() => _instance;
 
-  Talk? talk;
+  List<Talk>? talks;
+  List<Talk>? searchTalks;
   News? news;
 
   void clear() {
-    talk = null;
+    talks = null;
     news = null;
+    searchTalks = null;
   }
 }
