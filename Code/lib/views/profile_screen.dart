@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:amplify_flutter/amplify_flutter.dart';
 import 'package:amplify_auth_cognito/amplify_auth_cognito.dart';
 import 'package:texpresso/amplifyconfiguration.dart';
+import 'package:texpresso/views/login_screen.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({Key? key}) : super(key: key);
@@ -13,28 +14,38 @@ class ProfilePage extends StatefulWidget {
 
 class _ProfilePageState extends State<ProfilePage> {
   // Controllers per tutti i campi
-  final _nicknameController   = TextEditingController();
-  final _nomeController       = TextEditingController();
-  final _emailController      = TextEditingController();
-  final _indirizzoController  = TextEditingController();
-  final _paeseController      = TextEditingController();
-  final _capController        = TextEditingController();
-  final _sessoController      = TextEditingController();
-  final _cittaController      = TextEditingController();
-  final _segniController      = TextEditingController();
+  final _nicknameController = TextEditingController();
+  final _nomeController = TextEditingController();
+  final _emailController = TextEditingController();
+  final _indirizzoController = TextEditingController();
+  final _paeseController = TextEditingController();
+  final _capController = TextEditingController();
+  final _sessoController = TextEditingController();
+  final _cittaController = TextEditingController();
+  final _segniController = TextEditingController();
   final _compleannoController = TextEditingController();
-  final _cognomeController    = TextEditingController();
+  final _cognomeController = TextEditingController();
 
   // Chiavi fisse per i bit di preferenze
   static const List<String> _prefsKeys = [
-    'Motori', 'Sport', 'Politica', 'Politica estera', 'Mondo', 'Animali',
-    'Cultura', 'Finanza', 'Cronaca nera', 'Altro...'
+    'Motori',
+    'Sport',
+    'Politica',
+    'Politica estera',
+    'Mondo',
+    'Animali',
+    'Cultura',
+    'Finanza',
+    'Cronaca nera',
+    'Altro...',
   ];
 
   // Mappa delle preferenze
-  final Map<String, bool> _preferenze = { for (var key in _prefsKeys) key: false };
+  final Map<String, bool> _preferenze = {
+    for (var key in _prefsKeys) key: false,
+  };
 
-  bool _loading   = true;
+  bool _loading = true;
   String? _error;
   bool _isEditing = false;
 
@@ -58,19 +69,21 @@ class _ProfilePageState extends State<ProfilePage> {
   Future<void> _loadUserAttributes() async {
     try {
       final attrs = await Amplify.Auth.fetchUserAttributes();
-      final data = { for (var a in attrs) a.userAttributeKey.toString(): a.value };
+      final data = {
+        for (var a in attrs) a.userAttributeKey.toString(): a.value,
+      };
 
       // Popola i campi standard
-      _nicknameController.text   = data['nickname'] ?? '';
-      _nomeController.text       = data['name']     ?? '';
+      _nicknameController.text = data['nickname'] ?? '';
+      _nomeController.text = data['name'] ?? '';
       _compleannoController.text = data['birthdate'] ?? '';
-      _emailController.text      = data['email']    ?? '';
-      _indirizzoController.text  = data['address']  ?? '';
-      _paeseController.text      = data['city']     ?? '';
-      _capController.text        = data['custom:cap']    ?? '';
-      _sessoController.text      = data['gender']   ?? '';
-      _cittaController.text      = data['custom:citta']  ?? '';
-      _segniController.text      = data['custom:segni']  ?? '';
+      _emailController.text = data['email'] ?? '';
+      _indirizzoController.text = data['address'] ?? '';
+      _paeseController.text = data['city'] ?? '';
+      _capController.text = data['custom:cap'] ?? '';
+      _sessoController.text = data['gender'] ?? '';
+      _cittaController.text = data['custom:citta'] ?? '';
+      _segniController.text = data['custom:segni'] ?? '';
 
       // Decodifica custom:preferences
       final prefsStr = data['custom:preferences'];
@@ -84,7 +97,7 @@ class _ProfilePageState extends State<ProfilePage> {
       setState(() => _loading = false);
     } on AuthException catch (e) {
       setState(() {
-        _error   = e.message;
+        _error = e.message;
         _loading = false;
       });
     }
@@ -124,11 +137,11 @@ class _ProfilePageState extends State<ProfilePage> {
 
       setState(() {
         _isEditing = false;
-        _loading   = false;
+        _loading = false;
       });
     } on AuthException catch (e) {
       setState(() {
-        _error   = 'Salvataggio fallito: ${e.message}';
+        _error = 'Salvataggio fallito: ${e.message}';
         _loading = false;
       });
     }
@@ -141,7 +154,12 @@ class _ProfilePageState extends State<ProfilePage> {
         options: const SignOutOptions(globalSignOut: true),
       );
       // Dopo il logout, torna alla schermata di login
-      if (mounted) Navigator.of(context).popUntil((route) => route.isFirst);
+      if (mounted) {
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (context) => const LoginScreen()),
+          (route) => false,
+        );
+      }
     } on AuthException catch (e) {
       setState(() {
         _error = 'Errore logout: ${e.message}';
@@ -151,43 +169,56 @@ class _ProfilePageState extends State<ProfilePage> {
 
   @override
   Widget build(BuildContext context) {
-    const bgBeige = Color(0xFFE6D2B0);
+    const bgBeige = Color.fromARGB(255, 249, 221, 168);
     const cardTeal = Color(0xFF00897B);
-    const orange   = Color(0xFFF15A24);
+    const orange = Color(0xFFF37021);
 
     if (_loading) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
     if (_error != null) {
       return Scaffold(
         body: Center(
-          child: Text('Errore: $_error', style: const TextStyle(color: Colors.red)),
+          child: Text(
+            'Errore: $_error',
+            style: const TextStyle(color: Colors.red),
+          ),
         ),
       );
     }
 
-    Widget buildField(String label, TextEditingController ctl, { bool editable = true }) {
+    Widget buildField(
+      String label,
+      TextEditingController ctl, {
+      bool editable = true,
+    }) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label,
+          Text(
+            label,
             style: const TextStyle(
               color: Color.fromARGB(255, 249, 152, 66),
-              fontSize: 20, fontWeight: FontWeight.w800,
+              fontSize: 20,
+              fontWeight: FontWeight.w800,
             ),
           ),
           const SizedBox(height: 4),
           if (!_isEditing || !editable)
-            Text(ctl.text, style: const TextStyle(color: Colors.white, fontSize: 16))
+            Text(
+              ctl.text,
+              style: const TextStyle(color: Colors.white, fontSize: 16),
+            )
           else
             TextField(
               controller: ctl,
               style: const TextStyle(color: Colors.white),
               decoration: const InputDecoration(
                 isDense: true,
-                contentPadding: EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+                contentPadding: EdgeInsets.symmetric(
+                  vertical: 8,
+                  horizontal: 12,
+                ),
                 filled: true,
                 fillColor: Color(0xFF01675B),
                 border: OutlineInputBorder(
@@ -210,12 +241,14 @@ class _ProfilePageState extends State<ProfilePage> {
         ),
         title: Text(
           _isEditing
-            ? 'Modifica profilo'
-            : (_nicknameController.text.isNotEmpty
-                ? _nicknameController.text
-                : 'Profilo utente'
-              ),
-          style: const TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
+              ? 'Modifica profilo'
+              : (_nicknameController.text.isNotEmpty
+                  ? _nicknameController.text
+                  : 'Profilo utente'),
+          style: const TextStyle(
+            color: Colors.black,
+            fontWeight: FontWeight.bold,
+          ),
         ),
       ),
       body: SafeArea(
@@ -232,24 +265,14 @@ class _ProfilePageState extends State<ProfilePage> {
                   child: Icon(Icons.person, size: 60, color: Colors.white),
                 ),
                 const SizedBox(height: 12),
-                // Logout Button
-                ElevatedButton.icon(
-                  onPressed: _signOut,
-                  icon: const Icon(Icons.logout, color: Colors.white),
-                  label: const Text('Logout', style: TextStyle(fontSize: 16)),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: orange,
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                  ),
-                ),
-                const SizedBox(height: 16),
-
                 // Info Card
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 50),
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 20),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 30,
+                      vertical: 20,
+                    ),
                     decoration: BoxDecoration(
                       color: cardTeal,
                       borderRadius: BorderRadius.circular(16),
@@ -284,10 +307,12 @@ class _ProfilePageState extends State<ProfilePage> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text('Preferenze:',
+                        const Text(
+                          'Preferenze:',
                           style: TextStyle(
                             color: Color.fromARGB(255, 249, 152, 66),
-                            fontSize: 20, fontWeight: FontWeight.bold,
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
                           ),
                         ),
                         const SizedBox(height: 16),
@@ -299,16 +324,56 @@ class _ProfilePageState extends State<ProfilePage> {
 
                 const SizedBox(height: 24),
                 // Bottone Modifica/Salva
-                ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: orange,
-                    padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 12),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                  ),
-                  onPressed: _isEditing ? _saveChanges : () => setState(() => _isEditing = true),
-                  child: Text(_isEditing ? 'Salva' : 'Modifica profilo',
-                    style: const TextStyle(color: Colors.white, fontSize: 16),
-                  ),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: orange,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 40,
+                          vertical: 12,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                      onPressed:
+                          _isEditing
+                              ? _saveChanges
+                              : () => setState(() => _isEditing = true),
+                      child: Text(
+                        _isEditing ? 'Salva' : 'Modifica profilo',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                        ),
+                      ),
+                    ),
+                    SizedBox(width: 15),
+                    // Logout Button
+                    ElevatedButton.icon(
+                      onPressed: _signOut,
+                      icon: const Icon(Icons.logout, color: Colors.white),
+                      label: Text(
+                        'Logout',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                        ),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: orange,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 40,
+                          vertical: 12,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 16),
               ],
@@ -321,9 +386,9 @@ class _ProfilePageState extends State<ProfilePage> {
 
   /// Genera due colonne di checkbox
   Widget buildTwoColumnCheckboxes(Color cardTeal, Color orange) {
-    final labels    = _prefsKeys;
-    final mid       = (labels.length / 2).ceil();
-    final leftKeys  = labels.sublist(0, mid);
+    final labels = _prefsKeys;
+    final mid = (labels.length / 2).ceil();
+    final leftKeys = labels.sublist(0, mid);
     final rightKeys = labels.sublist(mid);
 
     Widget buildCheckbox(String key) {
@@ -343,9 +408,10 @@ class _ProfilePageState extends State<ProfilePage> {
             }),
             checkColor: Colors.white,
             value: _preferenze[key],
-            onChanged: _isEditing
-              ? (v) => setState(() => _preferenze[key] = v ?? false)
-              : null,
+            onChanged:
+                _isEditing
+                    ? (v) => setState(() => _preferenze[key] = v ?? false)
+                    : null,
           ),
           const SizedBox(width: 8),
           Expanded(
@@ -365,7 +431,9 @@ class _ProfilePageState extends State<ProfilePage> {
       children: [
         Expanded(child: Column(children: leftKeys.map(buildCheckbox).toList())),
         const SizedBox(width: 16),
-        Expanded(child: Column(children: rightKeys.map(buildCheckbox).toList())),
+        Expanded(
+          child: Column(children: rightKeys.map(buildCheckbox).toList()),
+        ),
       ],
     );
   }

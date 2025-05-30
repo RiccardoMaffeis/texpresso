@@ -35,7 +35,7 @@ class _HomePageState extends State<HomePage> {
     super.initState();
     final tags = widget.talkToShow?.tags;
     _newsFuture = (tags != null && tags.isNotEmpty)
-        ? fetchNews(tags.first)
+        ? fetchNewsAPI(tags.first)
         : Future.value(null);
   }
 
@@ -45,7 +45,7 @@ class _HomePageState extends State<HomePage> {
     super.dispose();
   }
 
-  Future<News?> fetchNews(String tag) async {
+  Future<News?> fetchNewsAPI(String tag) async {
     final uri = Uri.parse(
       'https://w8mtzslj7l.execute-api.us-east-1.amazonaws.com/default/Get_newsapi_by_tag',
     );
@@ -99,7 +99,7 @@ class _HomePageState extends State<HomePage> {
         talk != null ? DateTime.now().difference(talk.createdAt).inMinutes : 0;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFE6D2B0),
+      backgroundColor: Color.fromARGB(255, 249, 221, 168),
       body: SafeArea(
         child: Column(
           children: [

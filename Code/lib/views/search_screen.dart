@@ -41,7 +41,7 @@ class _SearchPageState extends State<SearchPage> {
             .toList();
 
     return Scaffold(
-      backgroundColor: const Color(0xFFE6D2B0),
+      backgroundColor: Color.fromARGB(255, 249, 221, 168),
       body: SafeArea(
         child: Column(
           children: [

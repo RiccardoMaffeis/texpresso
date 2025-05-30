@@ -82,7 +82,7 @@ class _TrendsPageState extends State<TrendsPage> {
     final screenHeight = MediaQuery.of(context).size.height;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFE6D2B0),
+      backgroundColor: Color.fromARGB(255, 249, 221, 168),
       body: SafeArea(
         child: Column(
           children: [

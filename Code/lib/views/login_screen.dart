@@ -68,37 +68,37 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget build(BuildContext context) {
     final m = _model;
     return Scaffold(
-      backgroundColor: const Color(0xFFE6D2B0),
+      backgroundColor: Color.fromARGB(255, 249, 221, 168),
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 24),
           child: Column(
             children: [
               const SizedBox(height: 40),
-              Image.asset('lib/resources/Logo.png', width: 80, height: 80),
-              const SizedBox(height: 16),
-              const Text(
-                'TEXPRESSO',
-                style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-              ),
+              Image.asset('lib/resources/Logo.png', width: 130, height: 130),
               const SizedBox(height: 32),
               Form(
                 key: _formKey,
                 child: Column(
                   children: [
                     TextFormField(
-                      decoration: const InputDecoration(
+                      decoration: InputDecoration(
                         hintText: 'email@domain.com',
                         filled: true,
                         fillColor: Colors.white,
+                        contentPadding: const EdgeInsets.symmetric(
+                          vertical: 16,
+                          horizontal: 20,
+                        ),
+                        border: const OutlineInputBorder(
+                          borderRadius: BorderRadius.all(Radius.circular(8)),
+                          borderSide: BorderSide.none,
+                        ),
                       ),
                       keyboardType: TextInputType.emailAddress,
                       onChanged: (v) => m.email = v,
-                      validator:
-                          (v) =>
-                              v == null || !v.contains('@')
-                                  ? 'Email not valid'
-                                  : null,
+                      validator: (v) =>
+                          v == null || !v.contains('@') ? 'Email non valida' : null,
                     ),
                     const SizedBox(height: 16),
                     TextFormField(
@@ -137,21 +137,32 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
 
                     const SizedBox(height: 24),
-                    SizedBox(
+                     SizedBox(
                       width: double.infinity,
                       height: 48,
-                      child:
-                          m.isLoading
-                              ? const Center(child: CircularProgressIndicator())
-                              : ElevatedButton(
-                                onPressed: _onSubmitCredentials,
-                                child: const Text('Continue'),
+                      child: m.isLoading
+                          ? const Center(child: CircularProgressIndicator())
+                          : ElevatedButton(
+                              onPressed: _onSubmitCredentials,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFFF37021),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
                               ),
+                              child: const Text(
+                                'Continue',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 16,
+                                ),
+                              ),
+                            ),
                     ),
                     const SizedBox(height: 16),
 
                     // Testo “Non hai un account? Registrati”
-                    GestureDetector(
+                     GestureDetector(
                       onTap: () {
                         Navigator.push(
                           context,
@@ -160,10 +171,10 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                         );
                       },
-                      child: Text(
+                      child: const Text(
                         "Don't have an account? Sign Up",
                         style: TextStyle(
-                          color: Colors.blue,
+                          color: Color(0xFF007AFF),
                           decoration: TextDecoration.underline,
                           fontSize: 14,
                         ),
@@ -175,27 +186,67 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
               ),
               const SizedBox(height: 32),
-              Row(
+             Row(
                 children: [
-                  Expanded(child: Divider()),
+                  const Expanded(
+                    child: Divider(
+                      thickness: 1,
+                      color: Color.fromARGB(255, 148, 148, 148),
+                    ),
+                  ),
                   const Padding(
                     padding: EdgeInsets.symmetric(horizontal: 8),
-                    child: Text('or'),
+                    child: Text(
+                      'or',
+                      style: TextStyle(
+                        color: Color.fromARGB(255, 93, 93, 93),
+                        fontSize: 14,
+                      ),
+                    ),
                   ),
-                  Expanded(child: Divider()),
+                  const Expanded(
+                    child: Divider(
+                      thickness: 1,
+                      color: Color.fromARGB(255, 148, 148, 148),
+                    ),
+                  ),
                 ],
               ),
               const SizedBox(height: 24),
-              OutlinedButton.icon(
+               OutlinedButton.icon(
                 onPressed: () => _onSubmitProvider(AuthProvider.google),
-                icon: Image.asset('lib/resources/google-logo.png', width: 20),
-                label: const Text('Continue with Google'),
+                style: OutlinedButton.styleFrom(
+                  backgroundColor: Colors.white,
+                  side: const BorderSide(color: Colors.white),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 20),
+                ),
+                icon: Image.asset('lib/resources/google-logo.png', width: 25),
+                label: const Text(
+                  ' Continue with Google',
+                  style: TextStyle(color: Colors.black),
+                ),
               ),
               const SizedBox(height: 12),
+
+              // Apple button
               OutlinedButton.icon(
                 onPressed: () => _onSubmitProvider(AuthProvider.apple),
-                icon: const Icon(Icons.apple),
-                label: const Text('Continue with Apple'),
+                style: OutlinedButton.styleFrom(
+                  backgroundColor: Colors.white,
+                  side: const BorderSide(color: Colors.white),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  padding: const EdgeInsets.symmetric(vertical: 11, horizontal: 22),
+                ),
+                icon: const Icon(Icons.apple, size: 30, color: Colors.black),
+                label: const Text(
+                  ' Continue with Apple',
+                  style: TextStyle(color: Colors.black),
+                ),
               ),
               const SizedBox(height: 32),
             ],

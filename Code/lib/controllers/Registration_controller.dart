@@ -5,7 +5,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import '../talk_repository.dart';
 import '../models/registration_model.dart';
-import '../views/Swipe_Talk_Screem.dart';
+import '../views/Swipe_Talk_Screen.dart';
 
 class RegistrationController {
   final RegistrationModel model;

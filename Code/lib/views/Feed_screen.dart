@@ -33,7 +33,7 @@ class _FeedPageState extends State<FeedPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFE6D2B0),
+      backgroundColor: Color.fromARGB(255, 249, 221, 168),
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,

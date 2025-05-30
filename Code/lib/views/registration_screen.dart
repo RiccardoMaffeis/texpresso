@@ -64,7 +64,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   Widget build(BuildContext context) {
     final m = _model;
     return Scaffold(
-      backgroundColor: const Color(0xFFE6D2B0),
+      backgroundColor: Color.fromARGB(255, 249, 221, 168),
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
@@ -72,12 +72,9 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const SizedBox(height: 40),
-                Image.asset('lib/resources/Logo.png', width: 120, height: 120),
-                const SizedBox(height: 16),
-
-                const SizedBox(height: 8),
-
+                const SizedBox(height: 25),
+                Image.asset('lib/resources/Logo.png', width: 130, height: 130),
+                const SizedBox(height: 20),
                 Form(
                   key: _formKey,
                   child:
@@ -206,14 +203,14 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                   : ElevatedButton(
                     onPressed: _handleSignUp,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFF15A24),
+                      backgroundColor: const Color(0xFFF37021),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(8),
                       ),
                     ),
                     child: const Text(
-                      'Sign Up',
-                      style: TextStyle(fontSize: 16),
+                      'Continue',
+                      style: TextStyle(color: Colors.white, fontSize: 16),
                     ),
                   ),
         ),
@@ -221,22 +218,22 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
 
         GestureDetector(
           onTap: () {
-            Navigator.pushReplacement(
+            Navigator.push(
               context,
               MaterialPageRoute(builder: (_) => const LoginScreen()),
             );
           },
-          child: Text(
-            'Hai già un account? Accedi',
+          child: const Text(
+            "Already have an account? Sign In",
             style: TextStyle(
-              color: Colors.blue,
+              color: Color(0xFF007AFF),
               decoration: TextDecoration.underline,
               fontSize: 14,
             ),
           ),
         ),
 
-        const SizedBox(height: 32),
+        const SizedBox(height: 20),
 
         _socialButtons(),
       ],
@@ -286,38 +283,60 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     children: [
       Row(
         children: [
-          Expanded(child: Divider(color: Colors.grey.shade400)),
+          const Expanded(
+            child: Divider(
+              thickness: 1,
+              color: Color.fromARGB(255, 148, 148, 148),
+            ),
+          ),
           const Padding(
             padding: EdgeInsets.symmetric(horizontal: 8),
-            child: Text('or', style: TextStyle(color: Colors.grey)),
+            child: Text(
+              'or',
+              style: TextStyle(
+                color: Color.fromARGB(255, 93, 93, 93),
+                fontSize: 14,
+              ),
+            ),
           ),
-          Expanded(child: Divider(color: Colors.grey.shade400)),
+          const Expanded(
+            child: Divider(
+              thickness: 1,
+              color: Color.fromARGB(255, 148, 148, 148),
+            ),
+          ),
         ],
       ),
       const SizedBox(height: 24),
       OutlinedButton.icon(
         onPressed: () => _controller.socialSignUp(AuthProvider.google),
-        icon: Image.asset(
-          'lib/resources/google-logo.png',
-          width: 20,
-          height: 20,
-        ),
-        label: const Text('Continue with Google'),
         style: OutlinedButton.styleFrom(
           backgroundColor: Colors.white,
-          padding: const EdgeInsets.symmetric(vertical: 14),
+          side: const BorderSide(color: Colors.white),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 20),
+        ),
+        icon: Image.asset('lib/resources/google-logo.png', width: 25),
+        label: const Text(
+          ' Continue with Google',
+          style: TextStyle(color: Colors.black),
         ),
       ),
       const SizedBox(height: 12),
+
+      // Apple button
       OutlinedButton.icon(
         onPressed: () => _controller.socialSignUp(AuthProvider.apple),
-        icon: const Icon(Icons.apple, size: 20),
-        label: const Text('Continue with Apple'),
         style: OutlinedButton.styleFrom(
           backgroundColor: Colors.white,
-          padding: const EdgeInsets.symmetric(vertical: 14),
+          side: const BorderSide(color: Colors.white),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          padding: const EdgeInsets.symmetric(vertical: 11, horizontal: 22),
+        ),
+        icon: const Icon(Icons.apple, size: 30, color: Colors.black),
+        label: const Text(
+          ' Continue with Apple',
+          style: TextStyle(color: Colors.black),
         ),
       ),
     ],
