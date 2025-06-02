@@ -239,6 +239,8 @@ class _ProfilePageState extends State<ProfilePage> {
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
+        scrolledUnderElevation: 0,              // disabilita l’elevazione on-scroll
+  surfaceTintColor: Colors.transparent, 
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.black),
           onPressed:

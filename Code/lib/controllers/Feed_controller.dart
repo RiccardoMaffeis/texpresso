@@ -25,7 +25,6 @@ class FeedController {
         actionText: 'Has tagged you, check!',
         thumbnailUrl: 'https://m.media-amazon.com/images/I/91N1lG+LBIS._AC_UF1000,1000_QL80_DpWeblab_.jpg',
       ),
-      // ... altri item
     ];
   }
 }

@@ -13,63 +13,58 @@ class TalkVideoEmbed extends StatefulWidget {
   State<TalkVideoEmbed> createState() => _TalkVideoEmbedState();
 }
 
-class _TalkVideoEmbedState extends State<TalkVideoEmbed> {
+class _TalkVideoEmbedState extends State<TalkVideoEmbed>
+    with AutomaticKeepAliveClientMixin<TalkVideoEmbed> {
   late final PlatformWebViewControllerCreationParams _params;
   late final WebViewController _controller;
-  bool _isLoading = true; // ← stato di caricamento
+  bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
 
-    // 1) parametri come prima
+    // 1) Parametri di base
     if (Platform.isAndroid) {
       _params = AndroidWebViewControllerCreationParams();
     } else {
       _params = const PlatformWebViewControllerCreationParams();
     }
+
     _controller = WebViewController.fromPlatformCreationParams(_params)
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
-      // 2) installiamo il NavigationDelegate per tracciare inizio/fine caricamento
       ..setNavigationDelegate(
         NavigationDelegate(
-          onPageStarted: (url) {
-            setState(() => _isLoading = true);
-          },
-          onPageFinished: (url) {
-            setState(() => _isLoading = false);
-          },
-          onWebResourceError: (err) {
-            // opzionale: gestisci gli errori di caricamento
-            setState(() => _isLoading = false);
-          },
+          onPageStarted: (url) => setState(() => _isLoading = true),
+          onPageFinished: (url) => setState(() => _isLoading = false),
+          onWebResourceError: (_) => setState(() => _isLoading = false),
         ),
       )
       ..loadRequest(Uri.parse(widget.url));
 
-    // 3) debug & autoplay come prima
+    // 2) Disabilitiamo l’autoplay (richiede gesto utente su Android)
     if (_controller.platform is AndroidWebViewController) {
       AndroidWebViewController.enableDebugging(true);
       (_controller.platform as AndroidWebViewController)
-          .setMediaPlaybackRequiresUserGesture(false);
+          .setMediaPlaybackRequiresUserGesture(true);
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    super.build(context); // serve per AutomaticKeepAliveClientMixin
+
     return Stack(
       children: [
-        // Blocca i tocchi se stiamo ancora caricando
         AbsorbPointer(
           absorbing: _isLoading,
           child: WebViewWidget(controller: _controller),
         ),
         if (_isLoading)
-          // indicatore al centro
-          const Center(
-            child: CircularProgressIndicator(),
-          ),
+          const Center(child: CircularProgressIndicator()),
       ],
     );
   }
+
+  @override
+  bool get wantKeepAlive => true;
 }

@@ -1,5 +1,6 @@
 import '../models/talk.dart';
-import '../models/news.dart';
+import '../models/News.dart';
+import '../models/NewsAPI.dart';
 
 class DataCache {
   DataCache._();
@@ -8,11 +9,12 @@ class DataCache {
 
   List<Talk>? talks;
   List<Talk>? searchTalks;
-  News? news;
+  List<News>? newsList;
+  List<NewsAPI>? newsAPIList;
 
   void clear() {
     talks = null;
-    news = null;
+    newsList = null;
     searchTalks = null;
   }
 }

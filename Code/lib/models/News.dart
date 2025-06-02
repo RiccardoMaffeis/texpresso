@@ -19,19 +19,40 @@ class News {
     this.imageUrl,
   });
 
+  /// Fa una fábrica che costruisce un oggetto `NewsAPI` a partire da un singolo articolo
+  /// nel formato JSON restituito da Get_news_by_tag (chiave "articles").
   factory News.fromJson(Map<String, dynamic> json) {
+    // Di solito l’endpoint “Get_news_by_tag” restituisce, per ogni articolo:
+    //  - "source": { "id": ..., "name": ... }
+    //  - "author", "title", "description", "url", "urlToImage", "publishedAt", "content"
+    // Diamo per scontato che “tags” possa essere un array vuoto o non esista.
+    final sourceName = (json['source'] is Map)
+        ? (json['source']['name']?.toString() ?? '')
+        : (json['source']?.toString() ?? '');
+
+    final author = json['author']?.toString() ?? '';
+
+    final publishedAt = DateTime.tryParse(json['publishedAt']?.toString() ?? '')
+        ?? DateTime.now();
+
+    // Se l’endpoint fornisce già “urlToImage”, lo usiamo direttamente.
+    final imageUrl = json['urlToImage']?.toString();
+
+    // Se l’endpoint fornisce anche “tags” (array di stringhe), altrimenti lascio vuoto
+    List<String> tagsList = [];
+    if (json['tags'] is List) {
+      tagsList = (json['tags'] as List<dynamic>).map((e) => e.toString()).toList();
+    }
+
     return News(
-      source: json['source']?.toString() ?? '',
-      author: json['author']?.toString() ?? '',
+      source: sourceName,
+      author: author,
       title: json['title']?.toString() ?? '',
       description: json['description']?.toString() ?? '',
       url: json['url']?.toString() ?? '',
-      publishedAt: DateTime.tryParse(json['publishedAt']?.toString() ?? '') 
-                    ?? DateTime.now(),
-      tags: (json['tags'] as List<dynamic>? ?? [])
-               .map((e) => e.toString())
-               .toList(),
-      // imageUrl sarà popolato successivamente
+      publishedAt: publishedAt,
+      tags: tagsList,
+      imageUrl: imageUrl, 
     );
   }
 }

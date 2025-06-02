@@ -1,7 +1,10 @@
 // lib/views/home_page.dart
 
 import 'dart:convert';
+import 'dart:math';
 
+import 'package:Texpresso/models/News.dart';
+import 'package:Texpresso/models/NewsAPI.dart';
 import 'package:Texpresso/views/profile_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:html/parser.dart' show parse;
@@ -9,13 +12,11 @@ import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
 
 import '../models/talk.dart';
-import '../models/news.dart';
 import '../models/data_cache.dart';
-import '../views/login_screen.dart';
 import '../views/BottomNavBar.dart';
 import '../controllers/BottomNavBarController.dart';
 import '../controllers/Talk_Video_Controller.dart';
-import 'package:Texpresso/talk_repository.dart';
+import '../talk_repository.dart'; // per fetchTalkVideo
 
 class HomePage extends StatefulWidget {
   const HomePage({Key? key}) : super(key: key);
@@ -26,7 +27,8 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   List<Talk>? _talks;
-  Future<News?>? _newsFuture;
+  Future<List<News>?>? _newsListFuture;
+  Future<List<NewsAPI>?>? _newsAPIListFuture;
   bool _isLoadingTalk = true;
 
   final BottomNavBarController _navController =
@@ -42,19 +44,31 @@ class _HomePageState extends State<HomePage> {
 
   void _maybeLoadFromCache() {
     final cache = DataCache();
+
     if (cache.talks != null && cache.talks!.isNotEmpty) {
-      // load cached
+      // 1) Carica talks da cache
       _talks = cache.talks;
       _isLoadingTalk = false;
-      if (cache.news != null) {
-        _newsFuture = Future.value(cache.news);
+
+      // 2) Carica lista di News (News) da cache o, se assente, fetch presso endpoint NEWS
+      if (cache.newsList != null) {
+        _newsListFuture = Future.value(cache.newsList);
       } else if (_talks!.first.tags.isNotEmpty) {
-        _newsFuture = fetchNewsAPI(_talks!.first.tags.first)
-            .then((n) => cache.news = n);
+        _newsListFuture = fetchNewsList(_talks!.first.tags.first)
+            .then((list) => cache.newsList = list);
       }
+
+      // 3) Carica lista di NewsAPI da cache o, se assente, fetch presso endpoint NEWSAPI
+      if (cache.newsAPIList != null) {
+        _newsAPIListFuture = Future.value(cache.newsAPIList);
+      } else if (_talks!.first.tags.isNotEmpty) {
+        _newsAPIListFuture = fetchNewsAPIList(_talks!.first.tags.first)
+            .then((list) => cache.newsAPIList = list);
+      }
+
       setState(() {});
     } else {
-      // first time: fetch
+      // Prima volta: fetch talks + news
       _loadContent();
     }
   }
@@ -62,19 +76,86 @@ class _HomePageState extends State<HomePage> {
   Future<void> _loadContent() async {
     setState(() => _isLoadingTalk = true);
     try {
-      final service = TalkService();
-      final talks = await Future.wait(
-        List.generate(20, (_) => service.getRandomTalk()),
+      const String fixedTalkId = '568452';
+      final uri = Uri.parse(
+        'https://5rp8yl6o4l.execute-api.us-east-1.amazonaws.com/default/Get_watchnext_by_ID',
       );
-      final valid = talks.whereType<Talk>().toList();
+      final response = await http.post(
+        uri,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'talk_id': fixedTalkId}),
+      );
+      if (response.statusCode != 200) {
+        throw Exception(
+          'Failed to load related talks: ${response.statusCode}',
+        );
+      }
 
+      final body = utf8.decode(response.bodyBytes);
+      final decoded = json.decode(body);
+      if (decoded is! Map<String, dynamic>) {
+        throw Exception('Unexpected JSON format: ${decoded.runtimeType}');
+      }
+
+      // 1) Estraggo i tag dalla chiave root "tags"
+      final rootTags = <String>[];
+      if (decoded['tags'] is List<dynamic>) {
+        for (var t in decoded['tags'] as List<dynamic>) {
+          rootTags.add(t.toString());
+        }
+      }
+
+      // 2) Estraggo la lista di talk correlati da "related_videos_details"
+      final relatedRaw = decoded['related_videos_details'];
+      final List<Talk> allRelated = [];
+      if (relatedRaw is List<dynamic>) {
+        final service = TalkService();
+        for (var item in relatedRaw) {
+          if (item is Map<String, dynamic>) {
+            // costruisco una mappa compatibile con Talk.fromJson()
+            final Map<String, dynamic> jsonMap = {
+              '_id': item['id']?.toString() ?? '',
+              'slug': '',
+              'speakers': item['speaker']?.toString() ?? '',
+              'title': item['title']?.toString() ?? '',
+              'url': item['video_url']?.toString() ?? '',
+              'description': item['description']?.toString() ?? '',
+              'duration': item['duration']?.toString() ?? '',
+              'publishedAt': item['publishedAt'],
+              'tags': <String>[], // non forniti in questo endpoint
+              'related_ids': <String>[],
+              'thumbnailUrl': item['image_url']?.toString() ?? '',
+            };
+
+            final talk = Talk.fromJson(jsonMap);
+            if (talk.url.isNotEmpty) {
+              try {
+                final vid = await service.fetchTalkVideo(talk.url);
+                if (vid != null && vid.isNotEmpty) {
+                  talk.videoUrl = vid;
+                }
+              } catch (_) {
+                // ignoro errori di fetchTalkVideo
+              }
+            }
+            allRelated.add(talk);
+          }
+        }
+      }
+
+      // Prendo i primi 5 talk (o meno, se non ce ne sono)
+      final valid = allRelated.take(5).toList();
+
+      // Salvo i talk in cache
       final cache = DataCache();
       cache.talks = valid;
 
-      // prepare news
-      if (valid.isNotEmpty && valid.first.tags.isNotEmpty) {
-        _newsFuture = fetchNewsAPI(valid.first.tags.first)
-            .then((n) => cache.news = n);
+      // 3) Se esistono tag root, carico le liste di News e NewsAPI
+      if (rootTags.isNotEmpty) {
+        _newsListFuture = fetchNewsList(rootTags.first)
+            .then((list) => cache.newsList = list);
+        _newsAPIListFuture = fetchNewsAPIList(rootTags.first)
+            .then((list) => cache.newsAPIList = list);
       }
 
       setState(() {
@@ -94,26 +175,65 @@ class _HomePageState extends State<HomePage> {
     await _loadContent();
   }
 
-  Future<News?> fetchNewsAPI(String tag) async {
+  /// Questo metodo ora chiama l’endpoint “NEWS” (c5palmnsv9…)
+  Future<List<News>> fetchNewsList(String tag) async {
     final uri = Uri.parse(
       'https://w8mtzslj7l.execute-api.us-east-1.amazonaws.com/default/Get_newsapi_by_tag',
     );
     final res = await http.post(
       uri,
       headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({'query': tag, 'pages': 1}),
+      body: jsonEncode({'query': tag}),
     );
-    if (res.statusCode != 200) return null;
+    if (res.statusCode != 200) return [];
+
     final data = jsonDecode(res.body);
+    final List<News> result = [];
     if (data is List && data.isNotEmpty) {
-      final news = News.fromJson(data[0] as Map<String, dynamic>);
-      if (news.url.isNotEmpty) {
-        final img = await _fetchArticleImage(news.url);
-        if (img != null) news.imageUrl = img;
+      for (var item in data) {
+        if (item is Map<String, dynamic>) {
+          final news = News.fromJson(item);
+          // Se non ho già immagine, la cerco sul sito
+          if (news.url.isNotEmpty &&
+              (news.imageUrl == null || news.imageUrl!.isEmpty)) {
+            final img = await _fetchArticleImage(news.url);
+            if (img != null) news.imageUrl = img;
+          }
+          result.add(news);
+        }
       }
-      return news;
     }
-    return null;
+    return result;
+  }
+
+  /// Questo metodo ora chiama l’endpoint “NEWSAPI” (w8mtzslj7l…)
+  Future<List<NewsAPI>> fetchNewsAPIList(String tag) async {
+    final uri = Uri.parse(
+            'https://c5palmnsv9.execute-api.us-east-1.amazonaws.com/default/Get_news_by_tag',
+
+    );
+    final res = await http.get(
+      uri.replace(queryParameters: {'q': tag, 'limit': '10'}),
+    );
+    if (res.statusCode != 200) return [];
+
+    final decoded = jsonDecode(res.body);
+    final List<NewsAPI> result = [];
+    if (decoded is Map<String, dynamic> && decoded['articles'] is List) {
+      for (var item in decoded['articles'] as List<dynamic>) {
+        if (item is Map<String, dynamic>) {
+          final news = NewsAPI.fromJson(item);
+          // Se non ho già immagine, la cerco sul sito
+          if ((news.imageUrl == null || news.imageUrl!.isEmpty) &&
+              news.url.isNotEmpty) {
+            final img = await _fetchArticleImage(news.url);
+            if (img != null) news.imageUrl = img;
+          }
+          result.add(news);
+        }
+      }
+    }
+    return result;
   }
 
   Future<String?> _fetchArticleImage(String url) async {
@@ -159,34 +279,36 @@ class _HomePageState extends State<HomePage> {
     return Scaffold(
       backgroundColor: const Color(0xFFF9DDA8),
       appBar: AppBar(
-  backgroundColor: const Color(0xFFF9DDA8),
-  elevation: 0,
-  centerTitle: true,
-  leading: IconButton(
-    icon: const Icon(Icons.refresh),
-    onPressed: _onRefreshPressed,
-  ),
-  title: Image.asset(
-    'lib/resources/Logo.png',
-    width: 40,
-    height: 40,
-  ),
-  actions: [
-    IconButton(
-      icon: const Icon(Icons.person),
-      onPressed: () {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (_) => ProfilePage()),
-        );
-      },
-    ),
-  ],
-),
-
+        backgroundColor: const Color(0xFFF9DDA8),
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        surfaceTintColor: Colors.transparent,
+        centerTitle: true,
+        leading: IconButton(
+          icon: const Icon(Icons.refresh),
+          onPressed: _onRefreshPressed,
+        ),
+        title: Image.asset(
+          'lib/resources/Logo.png',
+          width: 55,
+          height: 55,
+        ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.person),
+            onPressed: () {
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(builder: (_) => ProfilePage()),
+              );
+            },
+          ),
+        ],
+      ),
       body: Column(
         children: [
           // Tabs
+          const SizedBox(height: 10),
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
@@ -223,23 +345,45 @@ class _HomePageState extends State<HomePage> {
                               child: Text('Errore nel caricare i talk.')),
                         ),
 
-                      const SizedBox(height: 16),
-
-                      FutureBuilder<News?>(
-                        future: _newsFuture,
+                      FutureBuilder<List<News>?>(
+                        future: _newsListFuture,
                         builder: (ctx, snap) {
                           if (snap.connectionState != ConnectionState.done) {
                             return const Center(
                                 child: CircularProgressIndicator());
                           }
-                          if (snap.hasError || snap.data == null) {
+                          if (snap.hasError ||
+                              snap.data == null ||
+                              snap.data!.isEmpty) {
                             return const Padding(
                               padding: EdgeInsets.symmetric(vertical: 16),
                               child: Center(
                                   child: Text('Nessuna news disponibile.')),
                             );
                           }
-                          return _buildNewsCard(snap.data!);
+                          // Mostro il primo articolo di “News”
+                          return _buildNewsCard(snap.data!.first);
+                        },
+                      ),
+                      const SizedBox(height: 16),
+                      FutureBuilder<List<NewsAPI>?>(
+                        future: _newsAPIListFuture,
+                        builder: (ctx, snap) {
+                          if (snap.connectionState != ConnectionState.done) {
+                            return const Center(
+                                child: CircularProgressIndicator());
+                          }
+                          if (snap.hasError ||
+                              snap.data == null ||
+                              snap.data!.isEmpty) {
+                            return const Padding(
+                              padding: EdgeInsets.symmetric(vertical: 16),
+                              child: Center(
+                                  child: Text('Nessuna news disponibile.')),
+                            );
+                          }
+                          // Mostro il primo articolo di “NewsAPI”
+                          return _buildNewsAPICard(snap.data!.first);
                         },
                       ),
                     ],
@@ -292,6 +436,58 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _buildNewsCard(News news) {
+    return Container(
+      decoration: BoxDecoration(
+        color: const Color(0xFF0277BD),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (news.imageUrl?.isNotEmpty == true) ...[
+            ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: Image.network(
+                news.imageUrl!,
+                height: 180,
+                width: double.infinity,
+                fit: BoxFit.cover,
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
+          Text(
+            news.title,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            news.description,
+            style: const TextStyle(color: Colors.white, fontSize: 14),
+          ),
+          const SizedBox(height: 12),
+          TextButton(
+            onPressed: () async => await _launchUrl(news.url),
+            style: TextButton.styleFrom(padding: EdgeInsets.zero),
+            child: const Text(
+              'Leggi di più',
+              style: TextStyle(
+                decoration: TextDecoration.underline,
+                color: Colors.white70,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildNewsAPICard(NewsAPI news) {
     return Container(
       decoration: BoxDecoration(
         color: const Color(0xFF0277BD),

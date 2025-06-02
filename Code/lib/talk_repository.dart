@@ -67,4 +67,79 @@ class TalkService {
 
     return talk;
   }
+
+  /// Prende i talk "Watch Next" basati su un talk_id, tramite POST a un'altra Lambda
+  Future<List<Talk>> getWatchNextById(String talkId) async {
+    final uri = Uri.parse(
+      'https://5rp8yl6o4l.execute-api.us-east-1.amazonaws.com/default/Get_watchnext_by_ID',
+    );
+
+    // Corpo della richiesta JSON {"talk_id": "568452"}
+    final payload = jsonEncode({'talk_id': talkId});
+    final response = await http.post(
+      uri,
+      headers: {'Content-Type': 'application/json'},
+      body: payload,
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception(
+        'Failed to load watch-next talks: ${response.statusCode}',
+      );
+    }
+
+    // Decodifica bodyBytes per preservare caratteri speciali
+    final body = utf8.decode(response.bodyBytes);
+    final decoded = json.decode(body);
+
+    // decoded è un Map<String, dynamic> con chiavi "tags" e "related_videos_details"
+    if (decoded is! Map<String, dynamic>) {
+      throw Exception('Unexpected JSON format: ${decoded.runtimeType}');
+    }
+
+    // Estrazione della lista di talk correlati
+    final relatedList = decoded['related_videos_details'];
+    if (relatedList == null || relatedList is! List) {
+      return [];
+    }
+
+    final List<Talk> talks = [];
+    for (final item in relatedList) {
+      if (item is Map<String, dynamic>) {
+        // Ricostruisco una mappa compatibile con Talk.fromJson()
+        final Map<String, dynamic> jsonMap = {
+          '_id': item['id']?.toString() ?? '',
+          'slug': '', // non disponibile in questa API, lascio vuoto
+          'speakers': item['speaker']?.toString() ?? '',
+          'title': item['title']?.toString() ?? '',
+          'url': item['video_url']?.toString() ?? '',
+          'description': item['description']?.toString() ?? '',
+          'duration': item['duration']?.toString() ?? '',
+          // La chiave "publishedAt" è già nel formato ISO 8601 o null
+          'publishedAt': item['publishedAt'],
+          // Se l'API restituisce "createdAt" invece di "publishedAt", usare quella
+          'tags': <String>[], // non forniti per i correlati, lascio vuoto
+          'related_ids': <String>[],
+          // Il thumbnail è indicato da "image_url"
+          'thumbnailUrl': item['image_url']?.toString() ?? '',
+        };
+
+        final talk = Talk.fromJson(jsonMap);
+
+        // Se la URL è presente, estraggo videoUrl come nell'altro metodo
+        if (talk.url.isNotEmpty) {
+          try {
+            final vid = await fetchTalkVideo(talk.url);
+            if (vid != null && vid.isNotEmpty) talk.videoUrl = vid;
+          } catch (_) {
+            // ignora errori di fetchTalkVideo
+          }
+        }
+
+        talks.add(talk);
+      }
+    }
+
+    return talks;
+  }
 }

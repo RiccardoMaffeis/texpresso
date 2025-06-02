@@ -5,11 +5,15 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:html/parser.dart' show parse;
 import '../views/home_screen.dart';
-
 import '../models/talk.dart';
 import '../controllers/Talk_Video_Controller.dart';
 
-/// Pagina indipendente per swipe dei Talk in stile Tinder
+// Import necessari per Cognito tramite Amplify
+import 'package:amplify_flutter/amplify_flutter.dart';
+import 'package:amplify_auth_cognito/amplify_auth_cognito.dart';
+
+/// Pagina indipendente per swipe dei Talk in stile Tinder,
+/// con integrazione per salvare in Cognito i tag dei 5 talk selezionati.
 class TalkSwipePage extends StatefulWidget {
   const TalkSwipePage({Key? key}) : super(key: key);
 
@@ -21,6 +25,9 @@ class _TalkSwipePageState extends State<TalkSwipePage> {
   Talk? _currentTalk;
   bool _isLoading = true;
   int _likeCount = 0;
+
+  /// Lista che raccoglie tutti i tag dei talk a cui l'utente ha messo 'Like'
+  final List<String> _selectedTags = [];
 
   @override
   void initState() {
@@ -66,21 +73,68 @@ class _TalkSwipePageState extends State<TalkSwipePage> {
     return Talk.fromJson(jsonMap);
   }
 
+  /// Chiamata quando l'utente preme il pulsante 'Dislike'
   void _onDislike() {
     _loadNextTalk();
   }
 
+  /// Chiamata quando l'utente preme il pulsante 'Like'
   void _onLike() {
+    if (_currentTalk != null) {
+      // Aggiungo tutti i tag del talk corrente nella lista di selezionati
+      for (final tag in _currentTalk!.tags) {
+        _selectedTags.add(tag);
+      }
+    }
+
     setState(() {
       _likeCount += 1;
     });
+
     if (_likeCount >= 5) {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const HomePage()),
-      );
+      _saveTagsToCognito().then((_) {
+        // Dopo aver salvato i tag in Cognito, torno alla HomePage
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const HomePage()),
+        );
+      }).catchError((e) {
+        // Se c'è un errore durante il salvataggio in Cognito, mostro un messaggio
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Errore salvataggio tag: $e')),
+        );
+      });
     } else {
       _loadNextTalk();
+    }
+  }
+
+  /// Costruisce la stringa formattata con # e , per ogni tag,
+  /// quindi aggiorna l'attributo personalizzato 'custom:tags' in Cognito.
+  Future<void> _saveTagsToCognito() async {
+    // Creo la stringa: ogni tag diventa "#tag,"
+    final buffer = StringBuffer();
+    for (final tag in _selectedTags) {
+      buffer.write('#$tag,');
+    }
+    final formatted = buffer.toString(); // es. "#tag1,#tag2,#tag3,"
+
+    try {
+      // Verifico che l'utente sia autenticato e recupero i suoi attributi
+      final user = await Amplify.Auth.getCurrentUser();
+      // Aggiorno l'attributo personalizzato 'custom:tags'
+      final result = await Amplify.Auth.updateUserAttribute(
+        userAttributeKey: const CognitoUserAttributeKey.custom('tags'),
+        value: formatted,
+      );
+      if (result.isUpdated) {
+        // Attributo aggiornato correttamente
+        // (Non serve fare nulla in più, la navigazione avverrà a _onLike)
+      } else {
+        throw Exception('Aggiornamento attributo non riuscito');
+      }
+    } on AuthException catch (e) {
+      throw Exception('AuthException: ${e.message}');
     }
   }
 
@@ -116,7 +170,9 @@ class _TalkSwipePageState extends State<TalkSwipePage> {
               child: _isLoading
                   ? const Center(child: CircularProgressIndicator())
                   : _currentTalk == null
-                      ? const Center(child: Text('Errore nel caricamento del talk.'))
+                      ? const Center(
+                          child: Text('Errore nel caricamento del talk.'),
+                        )
                       : _buildTalkCard(context, _currentTalk!),
             ),
           ],
@@ -126,7 +182,8 @@ class _TalkSwipePageState extends State<TalkSwipePage> {
   }
 
   Widget _buildTalkCard(BuildContext context, Talk talk) {
-    final minutesAgo = DateTime.now().difference(talk.createdAt).inMinutes;
+    final minutesAgo =
+        DateTime.now().difference(talk.createdAt).inMinutes;
     final embedUrl = talk.url.replaceFirst(
       'www.ted.com/talks/',
       'embed.ted.com/talks/',
@@ -159,7 +216,10 @@ class _TalkSwipePageState extends State<TalkSwipePage> {
                   // Descrizione sempre estesa
                   Text(
                     talk.description,
-                    style: const TextStyle(color: Colors.white, fontSize: 14),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 14,
+                    ),
                   ),
                   const SizedBox(height: 12),
                   ClipRRect(
@@ -172,7 +232,10 @@ class _TalkSwipePageState extends State<TalkSwipePage> {
                   const SizedBox(height: 12),
                   Text(
                     '${talk.speakers} • $minutesAgo min ago',
-                    style: const TextStyle(color: Colors.white70, fontSize: 12),
+                    style: const TextStyle(
+                      color: Colors.white70,
+                      fontSize: 12,
+                    ),
                   ),
                 ],
               ),
@@ -190,7 +253,11 @@ class _TalkSwipePageState extends State<TalkSwipePage> {
                   padding: const EdgeInsets.all(20),
                   backgroundColor: Colors.red,
                 ),
-                child: const Icon(Icons.close, color: Colors.white, size: 32),
+                child: const Icon(
+                  Icons.close,
+                  color: Colors.white,
+                  size: 32,
+                ),
               ),
               ElevatedButton(
                 onPressed: _onLike,
@@ -199,7 +266,11 @@ class _TalkSwipePageState extends State<TalkSwipePage> {
                   padding: const EdgeInsets.all(20),
                   backgroundColor: Colors.green,
                 ),
-                child: const Icon(Icons.thumb_up, color: Colors.white, size: 32),
+                child: const Icon(
+                  Icons.thumb_up,
+                  color: Colors.white,
+                  size: 32,
+                ),
               ),
             ],
           ),
