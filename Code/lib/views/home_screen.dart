@@ -30,8 +30,9 @@ class _HomePageState extends State<HomePage> {
   Future<List<NewsAPI>?>? _newsAPIListFuture;
   bool _isLoadingTalk = true;
 
-  final BottomNavBarController _navController =
-      BottomNavBarController(initialIndex: 0);
+  final BottomNavBarController _navController = BottomNavBarController(
+    initialIndex: 0,
+  );
   int _selectedTab = 1;
   bool _isDescriptionExpanded = false;
 
@@ -53,16 +54,18 @@ class _HomePageState extends State<HomePage> {
       if (cache.newsList != null) {
         _newsListFuture = Future.value(cache.newsList);
       } else if (_talks!.first.tags.isNotEmpty) {
-        _newsListFuture = fetchNewsList(_talks!.first.tags.first)
-            .then((list) => cache.newsList = list);
+        _newsListFuture = fetchNewsList(
+          _talks!.first.tags.first,
+        ).then((list) => cache.newsList = list);
       }
 
       // 3) Carica lista di NewsAPI da cache o, se assente, fetch presso endpoint NEWSAPI
       if (cache.newsAPIList != null) {
         _newsAPIListFuture = Future.value(cache.newsAPIList);
       } else if (_talks!.first.tags.isNotEmpty) {
-        _newsAPIListFuture = fetchNewsAPIList(_talks!.first.tags.first)
-            .then((list) => cache.newsAPIList = list);
+        _newsAPIListFuture = fetchNewsAPIList(
+          _talks!.first.tags.first,
+        ).then((list) => cache.newsAPIList = list);
       }
 
       setState(() {});
@@ -75,7 +78,7 @@ class _HomePageState extends State<HomePage> {
   Future<void> _loadContent() async {
     setState(() => _isLoadingTalk = true);
     try {
-      const String fixedTalkId = '568452';
+      const String fixedTalkId = '563142';
       final uri = Uri.parse(
         'https://h18wuxhuy1.execute-api.us-east-1.amazonaws.com/default/Get_Watch_Next_By_Idx',
       );
@@ -85,9 +88,7 @@ class _HomePageState extends State<HomePage> {
         body: jsonEncode({'talk_id': fixedTalkId}),
       );
       if (response.statusCode != 200) {
-        throw Exception(
-          'Failed to load related talks: ${response.statusCode}',
-        );
+        throw Exception('Failed to load related talks: ${response.statusCode}');
       }
 
       final body = utf8.decode(response.bodyBytes);
@@ -151,10 +152,12 @@ class _HomePageState extends State<HomePage> {
 
       // 3) Se esistono tag root, carico le liste di News e NewsAPI
       if (rootTags.isNotEmpty) {
-        _newsListFuture = fetchNewsList(rootTags.first)
-            .then((list) => cache.newsList = list);
-        _newsAPIListFuture = fetchNewsAPIList(rootTags.first)
-            .then((list) => cache.newsAPIList = list);
+        _newsListFuture = fetchNewsList(
+          rootTags.first,
+        ).then((list) => cache.newsList = list);
+        _newsAPIListFuture = fetchNewsAPIList(
+          rootTags.first,
+        ).then((list) => cache.newsAPIList = list);
       }
 
       setState(() {
@@ -163,9 +166,9 @@ class _HomePageState extends State<HomePage> {
       });
     } catch (e) {
       setState(() => _isLoadingTalk = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Errore caricamento talk: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Errore caricamento talk: $e')));
     }
   }
 
@@ -182,17 +185,21 @@ class _HomePageState extends State<HomePage> {
     final res = await http.post(
       uri,
       headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({'query': tag}),
+      body: jsonEncode({'query': tag, 'pages': 1}),
     );
     if (res.statusCode != 200) return [];
 
     final data = jsonDecode(res.body);
     final List<News> result = [];
+
     if (data is List && data.isNotEmpty) {
-      for (var item in data) {
+      // Prendo al massimo i primi 10 elementi
+      final limitedData = data.take(1).toList();
+
+      for (var item in limitedData) {
         if (item is Map<String, dynamic>) {
           final news = News.fromJson(item);
-          // Se non ho già immagine, la cerco sul sito
+          // Se non ho già un’immagine, la cerco sul sito
           if (news.url.isNotEmpty &&
               (news.imageUrl == null || news.imageUrl!.isEmpty)) {
             final img = await _fetchArticleImage(news.url);
@@ -202,36 +209,47 @@ class _HomePageState extends State<HomePage> {
         }
       }
     }
+
     return result;
   }
 
   /// Questo metodo ora chiama l’endpoint “NEWSAPI” (w8mtzslj7l…)
   Future<List<NewsAPI>> fetchNewsAPIList(String tag) async {
+    // 1) URL dell’endpoint (stesso percorso, ma useremo POST con body JSON)
     final uri = Uri.parse(
-            'https://ikzrooef8c.execute-api.us-east-1.amazonaws.com/default/Get_news_by_tag',
+      'https://ikzrooef8c.execute-api.us-east-1.amazonaws.com/default/Get_news_by_tag',
+    );
 
+    // 2) Effettuiamo una POST e inviamo un JSON con campo "tags"
+    final res = await http.post(
+      uri,
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({'tags': tag}),
     );
-    final res = await http.get(
-      uri.replace(queryParameters: {'q': tag, 'limit': '10'}),
-    );
+
     if (res.statusCode != 200) return [];
 
+    // 3) Decodifichiamo la risposta
     final decoded = jsonDecode(res.body);
     final List<NewsAPI> result = [];
+
     if (decoded is Map<String, dynamic> && decoded['articles'] is List) {
       for (var item in decoded['articles'] as List<dynamic>) {
         if (item is Map<String, dynamic>) {
           final news = NewsAPI.fromJson(item);
-          // Se non ho già immagine, la cerco sul sito
+
+          // Se non ho già un’immagine, la cerco sul sito
           if ((news.imageUrl == null || news.imageUrl!.isEmpty) &&
               news.url.isNotEmpty) {
             final img = await _fetchArticleImage(news.url);
             if (img != null) news.imageUrl = img;
           }
+
           result.add(news);
         }
       }
     }
+
     return result;
   }
 
@@ -287,11 +305,7 @@ class _HomePageState extends State<HomePage> {
           icon: const Icon(Icons.refresh),
           onPressed: _onRefreshPressed,
         ),
-        title: Image.asset(
-          'lib/resources/Logo.png',
-          width: 55,
-          height: 55,
-        ),
+        title: Image.asset('lib/resources/Logo.png', width: 55, height: 55),
         actions: [
           IconButton(
             icon: const Icon(Icons.person),
@@ -320,73 +334,82 @@ class _HomePageState extends State<HomePage> {
 
           // Content
           Expanded(
-            child: _isLoadingTalk
-                ? const Center(child: CircularProgressIndicator())
-                : ListView(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    children: [
-                      if (_talks != null && _talks!.isNotEmpty) ...[
-                        for (final t in _talks!) ...[
-                          Builder(builder: (_) {
-                            final mins = DateTime.now()
-                                .difference(t.createdAt)
-                                .inMinutes;
-                            return Padding(
-                              padding: const EdgeInsets.only(bottom: 16),
-                              child: _buildTalkCard(t, mins),
-                            );
-                          }),
-                        ],
-                      ] else
-                        const Padding(
-                          padding: EdgeInsets.symmetric(vertical: 16),
-                          child: Center(
-                              child: Text('Errore nel caricare i talk.')),
-                        ),
+            child:
+                _isLoadingTalk
+                    ? const Center(child: CircularProgressIndicator())
+                    : ListView(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      children: [
+                        if (_talks != null && _talks!.isNotEmpty) ...[
+                          for (final t in _talks!) ...[
+                            Builder(
+                              builder: (_) {
+                                final mins =
+                                    DateTime.now()
+                                        .difference(t.createdAt)
+                                        .inMinutes;
+                                return Padding(
+                                  padding: const EdgeInsets.only(bottom: 16),
+                                  child: _buildTalkCard(t, mins),
+                                );
+                              },
+                            ),
+                          ],
+                        ] else
+                          const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 16),
+                            child: Center(
+                              child: Text('Errore nel caricare i talk.'),
+                            ),
+                          ),
 
-                      FutureBuilder<List<News>?>(
-                        future: _newsListFuture,
-                        builder: (ctx, snap) {
-                          if (snap.connectionState != ConnectionState.done) {
-                            return const Center(
-                                child: CircularProgressIndicator());
-                          }
-                          if (snap.hasError ||
-                              snap.data == null ||
-                              snap.data!.isEmpty) {
-                            return const Padding(
-                              padding: EdgeInsets.symmetric(vertical: 16),
-                              child: Center(
-                                  child: Text('Nessuna news disponibile.')),
-                            );
-                          }
-                          // Mostro il primo articolo di “News”
-                          return _buildNewsCard(snap.data!.first);
-                        },
-                      ),
-                      const SizedBox(height: 16),
-                      FutureBuilder<List<NewsAPI>?>(
-                        future: _newsAPIListFuture,
-                        builder: (ctx, snap) {
-                          if (snap.connectionState != ConnectionState.done) {
-                            return const Center(
-                                child: CircularProgressIndicator());
-                          }
-                          if (snap.hasError ||
-                              snap.data == null ||
-                              snap.data!.isEmpty) {
-                            return const Padding(
-                              padding: EdgeInsets.symmetric(vertical: 16),
-                              child: Center(
-                                  child: Text('Nessuna news disponibile.')),
-                            );
-                          }
-                          // Mostro il primo articolo di “NewsAPI”
-                          return _buildNewsAPICard(snap.data!.first);
-                        },
-                      ),
-                    ],
-                  ),
+                        FutureBuilder<List<News>?>(
+                          future: _newsListFuture,
+                          builder: (ctx, snap) {
+                            if (snap.connectionState != ConnectionState.done) {
+                              return const Center(
+                                child: CircularProgressIndicator(),
+                              );
+                            }
+                            if (snap.hasError ||
+                                snap.data == null ||
+                                snap.data!.isEmpty) {
+                              return const Padding(
+                                padding: EdgeInsets.symmetric(vertical: 16),
+                                child: Center(
+                                  child: Text('Nessuna news disponibile.'),
+                                ),
+                              );
+                            }
+                            // Mostro il primo articolo di “News”
+                            return _buildNewsCard(snap.data!.first);
+                          },
+                        ),
+                        const SizedBox(height: 16),
+                        FutureBuilder<List<NewsAPI>?>(
+                          future: _newsAPIListFuture,
+                          builder: (ctx, snap) {
+                            if (snap.connectionState != ConnectionState.done) {
+                              return const Center(
+                                child: CircularProgressIndicator(),
+                              );
+                            }
+                            if (snap.hasError ||
+                                snap.data == null ||
+                                snap.data!.isEmpty) {
+                              return const Padding(
+                                padding: EdgeInsets.symmetric(vertical: 16),
+                                child: Center(
+                                  child: Text('Nessuna news disponibile.'),
+                                ),
+                              );
+                            }
+                            // Mostro il primo articolo di “NewsAPI”
+                            return _buildNewsAPICard(snap.data!.first);
+                          },
+                        ),
+                      ],
+                    ),
           ),
         ],
       ),
@@ -409,10 +432,11 @@ class _HomePageState extends State<HomePage> {
   Widget _buildTab(int idx, String label) {
     final sel = _selectedTab == idx;
     return GestureDetector(
-      onTap: () => setState(() {
-        _selectedTab = idx;
-        _isDescriptionExpanded = false;
-      }),
+      onTap:
+          () => setState(() {
+            _selectedTab = idx;
+            _isDescriptionExpanded = false;
+          }),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -603,25 +627,28 @@ class _HomePageState extends State<HomePage> {
 
           // Descrizione espandibile
           GestureDetector(
-            onTap: () => setState(
-              () => _isDescriptionExpanded = !_isDescriptionExpanded,
-            ),
+            onTap:
+                () => setState(
+                  () => _isDescriptionExpanded = !_isDescriptionExpanded,
+                ),
             child: Text(
               talk.description,
               style: const TextStyle(color: Colors.white, fontSize: 14),
               maxLines: _isDescriptionExpanded ? null : 3,
-              overflow: _isDescriptionExpanded
-                  ? TextOverflow.visible
-                  : TextOverflow.ellipsis,
+              overflow:
+                  _isDescriptionExpanded
+                      ? TextOverflow.visible
+                      : TextOverflow.ellipsis,
             ),
           ),
 
           Align(
             alignment: Alignment.centerRight,
             child: TextButton(
-              onPressed: () => setState(
-                () => _isDescriptionExpanded = !_isDescriptionExpanded,
-              ),
+              onPressed:
+                  () => setState(
+                    () => _isDescriptionExpanded = !_isDescriptionExpanded,
+                  ),
               child: Text(
                 _isDescriptionExpanded ? 'Mostra meno' : 'Leggi altro',
                 style: const TextStyle(color: Colors.white70),
@@ -630,7 +657,10 @@ class _HomePageState extends State<HomePage> {
           ),
 
           const SizedBox(height: 12),
-          SizedBox(height: 200, child: TalkVideoEmbed(url: embedUrl)),
+          SizedBox(
+            height: 200,
+            child: TalkVideoEmbed(url: embedUrl),
+          ), //,thumbnailUrl: 'https://logowik.com/content/uploads/images/tedx4450.jpg
           const SizedBox(height: 12),
 
           // Footer icons
