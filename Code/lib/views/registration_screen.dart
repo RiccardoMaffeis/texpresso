@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
 import 'package:amplify_flutter/amplify_flutter.dart';
-import 'package:amplify_auth_cognito/amplify_auth_cognito.dart';
 import '../models/registration_model.dart';
 import '../controllers/Registration_controller.dart';
-import 'home_screen.dart';
 import 'login_screen.dart';
 
 class RegistrationScreen extends StatefulWidget {

@@ -3,14 +3,12 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
-import 'package:html/parser.dart' show parse;
 import '../views/home_screen.dart';
 import '../models/talk.dart';
 import '../controllers/Talk_Video_Controller.dart';
 
 // Import necessari per Cognito tramite Amplify
 import 'package:amplify_flutter/amplify_flutter.dart';
-import 'package:amplify_auth_cognito/amplify_auth_cognito.dart';
 
 /// Pagina indipendente per swipe dei Talk in stile Tinder,
 /// con integrazione per salvare in Cognito i tag dei 5 talk selezionati.
@@ -53,7 +51,7 @@ class _TalkSwipePageState extends State<TalkSwipePage> {
   /// Richiama l'API per ottenere un Talk casuale
   Future<Talk?> _fetchRandomTalk() async {
     final uri = Uri.parse(
-      'https://y15uqmzsbi.execute-api.us-east-1.amazonaws.com/default/Get_talk_random',
+      'https://d0arirrg35.execute-api.us-east-1.amazonaws.com/default/Get_talk_random',
     );
     final response = await http.get(uri);
     if (response.statusCode != 200) {

@@ -3,7 +3,6 @@ import 'package:amplify_flutter/amplify_flutter.dart';
 import 'package:amplify_auth_cognito/amplify_auth_cognito.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
-import '../talk_repository.dart';
 import '../models/registration_model.dart';
 import '../views/Swipe_Talk_Screen.dart';
 

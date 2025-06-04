@@ -1,7 +1,6 @@
 // lib/views/home_page.dart
 
 import 'dart:convert';
-import 'dart:math';
 
 import 'package:Texpresso/models/News.dart';
 import 'package:Texpresso/models/NewsAPI.dart';
@@ -78,7 +77,7 @@ class _HomePageState extends State<HomePage> {
     try {
       const String fixedTalkId = '568452';
       final uri = Uri.parse(
-        'https://5rp8yl6o4l.execute-api.us-east-1.amazonaws.com/default/Get_watchnext_by_ID',
+        'https://h18wuxhuy1.execute-api.us-east-1.amazonaws.com/default/Get_Watch_Next_By_Idx',
       );
       final response = await http.post(
         uri,
@@ -178,7 +177,7 @@ class _HomePageState extends State<HomePage> {
   /// Questo metodo ora chiama l’endpoint “NEWS” (c5palmnsv9…)
   Future<List<News>> fetchNewsList(String tag) async {
     final uri = Uri.parse(
-      'https://w8mtzslj7l.execute-api.us-east-1.amazonaws.com/default/Get_newsapi_by_tag',
+      'https://2qu4468ttb.execute-api.us-east-1.amazonaws.com/default/Get_newsapi_by_tag',
     );
     final res = await http.post(
       uri,
@@ -209,7 +208,7 @@ class _HomePageState extends State<HomePage> {
   /// Questo metodo ora chiama l’endpoint “NEWSAPI” (w8mtzslj7l…)
   Future<List<NewsAPI>> fetchNewsAPIList(String tag) async {
     final uri = Uri.parse(
-            'https://c5palmnsv9.execute-api.us-east-1.amazonaws.com/default/Get_news_by_tag',
+            'https://ikzrooef8c.execute-api.us-east-1.amazonaws.com/default/Get_news_by_tag',
 
     );
     final res = await http.get(

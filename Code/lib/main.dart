@@ -1,11 +1,8 @@
-import 'dart:io';
 
 import 'package:Texpresso/models/data_cache.dart';
 import 'package:flutter/material.dart';
 import 'package:amplify_flutter/amplify_flutter.dart';
 import 'package:amplify_auth_cognito/amplify_auth_cognito.dart';
-import 'package:webview_flutter/webview_flutter.dart';
-import 'package:webview_flutter_android/webview_flutter_android.dart';
 
 import 'amplifyconfiguration.dart';
 import 'views/login_screen.dart';
