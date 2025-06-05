@@ -1,6 +1,7 @@
 // lib/views/home_page.dart
 
 import 'dart:convert';
+import 'dart:math';
 
 import 'package:Texpresso/models/News.dart';
 import 'package:Texpresso/models/NewsAPI.dart';
@@ -25,20 +26,39 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
+  // 1) Lista di Talk (eventualmente presa da cache)
   List<Talk>? _talks;
-  Future<List<News>?>? _newsListFuture;
-  Future<List<NewsAPI>?>? _newsAPIListFuture;
   bool _isLoadingTalk = true;
 
+  // 2) Per ogni talk, avrò una Future che restituisce List<News> per il tag assegnato
+  List<Future<List<News>>>? _newsListFutures;
+  // 3) Per ogni talk, una Future che restituisce List<NewsAPI>
+  List<Future<List<NewsAPI>>>? _newsAPIListFutures;
+
+  // 4) Controller per la Bottom Navigation
   final BottomNavBarController _navController = BottomNavBarController(
     initialIndex: 0,
   );
   int _selectedTab = 1;
   bool _isDescriptionExpanded = false;
 
+  // --------------------------------------------------------------------------
+  // 5) Stringa di tag: a questo punto puoi espandere con altri tag separati da virgola
+  final String tagString =
+      "#culture, #ai, #education, #science, #technology, #health";
+
+  // 6) Lista dei singoli tag (senza '#'), ricavata da tagString e “shufflata”
+  late List<String> _availableTags;
+
   @override
   void initState() {
     super.initState();
+    // Divido tagString in lista di tag (rimuovendo il simbolo '#')
+    _availableTags =
+        tagString
+            .split(',')
+            .map((t) => t.trim().replaceFirst('#', ''))
+            .toList();
     _maybeLoadFromCache();
   }
 
@@ -46,31 +66,26 @@ class _HomePageState extends State<HomePage> {
     final cache = DataCache();
 
     if (cache.talks != null && cache.talks!.isNotEmpty) {
-      // 1) Carica talks da cache
+      // Se i Talks sono in cache:
       _talks = cache.talks;
       _isLoadingTalk = false;
 
-      // 2) Carica lista di News (News) da cache o, se assente, fetch presso endpoint NEWS
-      if (cache.newsList != null) {
-        _newsListFuture = Future.value(cache.newsList);
-      } else if (_talks!.first.tags.isNotEmpty) {
-        _newsListFuture = fetchNewsList(
-          _talks!.first.tags.first,
-        ).then((list) => cache.newsList = list);
-      }
+      // Preparo le Future per le News:
+      // - Mescolo i tag (_availableTags)
+      // - Prendo tanti tag quanti sono i talk (o ripeto ciclicamente se i tag sono meno)
+      final shuffledTags = List<String>.from(_availableTags)..shuffle();
+      _newsListFutures = [];
+      _newsAPIListFutures = [];
 
-      // 3) Carica lista di NewsAPI da cache o, se assente, fetch presso endpoint NEWSAPI
-      if (cache.newsAPIList != null) {
-        _newsAPIListFuture = Future.value(cache.newsAPIList);
-      } else if (_talks!.first.tags.isNotEmpty) {
-        _newsAPIListFuture = fetchNewsAPIList(
-          _talks!.first.tags.first,
-        ).then((list) => cache.newsAPIList = list);
+      for (int i = 0; i < _talks!.length; i++) {
+        final chosenTag = shuffledTags[i % shuffledTags.length];
+        _newsListFutures!.add(fetchNewsList(chosenTag));
+        _newsAPIListFutures!.add(fetchNewsAPIList(chosenTag));
       }
 
       setState(() {});
     } else {
-      // Prima volta: fetch talks + news
+      // Primo avvio: carico i talk (e poi le news associate)
       _loadContent();
     }
   }
@@ -97,22 +112,14 @@ class _HomePageState extends State<HomePage> {
         throw Exception('Unexpected JSON format: ${decoded.runtimeType}');
       }
 
-      // 1) Estraggo i tag dalla chiave root "tags"
-      final rootTags = <String>[];
-      if (decoded['tags'] is List<dynamic>) {
-        for (var t in decoded['tags'] as List<dynamic>) {
-          rootTags.add(t.toString());
-        }
-      }
-
-      // 2) Estraggo la lista di talk correlati da "related_videos_details"
+      // 1) Estraggo la lista di talk correlati da "related_videos_details"
       final relatedRaw = decoded['related_videos_details'];
       final List<Talk> allRelated = [];
       if (relatedRaw is List<dynamic>) {
         final service = TalkService();
         for (var item in relatedRaw) {
           if (item is Map<String, dynamic>) {
-            // costruisco una mappa compatibile con Talk.fromJson()
+            // Mappo il JSON esterno in un formato compatibile con Talk.fromJson()
             final Map<String, dynamic> jsonMap = {
               '_id': item['id']?.toString() ?? '',
               'slug': '',
@@ -122,12 +129,14 @@ class _HomePageState extends State<HomePage> {
               'description': item['description']?.toString() ?? '',
               'duration': item['duration']?.toString() ?? '',
               'publishedAt': item['publishedAt'],
-              'tags': <String>[], // non forniti in questo endpoint
+              'tags': <String>[], // l'endpoint non fornisce tags in questo JSON
               'related_ids': <String>[],
               'thumbnailUrl': item['image_url']?.toString() ?? '',
             };
 
             final talk = Talk.fromJson(jsonMap);
+
+            // Provo a recuperare la “videoUrl” vera tramite fetchTalkVideo()
             if (talk.url.isNotEmpty) {
               try {
                 final vid = await service.fetchTalkVideo(talk.url);
@@ -135,29 +144,32 @@ class _HomePageState extends State<HomePage> {
                   talk.videoUrl = vid;
                 }
               } catch (_) {
-                // ignoro errori di fetchTalkVideo
+                // ignore
               }
             }
+
             allRelated.add(talk);
           }
         }
       }
 
-      // Prendo i primi 5 talk (o meno, se non ce ne sono)
+      // Prendo al massimo i primi 5 talk
       final valid = allRelated.take(5).toList();
 
       // Salvo i talk in cache
       final cache = DataCache();
       cache.talks = valid;
 
-      // 3) Se esistono tag root, carico le liste di News e NewsAPI
-      if (rootTags.isNotEmpty) {
-        _newsListFuture = fetchNewsList(
-          rootTags.first,
-        ).then((list) => cache.newsList = list);
-        _newsAPIListFuture = fetchNewsAPIList(
-          rootTags.first,
-        ).then((list) => cache.newsAPIList = list);
+      // 2) Preparo le Future per le News:
+      //    - Mescolo i tag disponibili
+      //    - Per ogni talk assegno un tag diverso (o se i tag finiscono, riciclo ciclicamente)
+      final shuffledTags = List<String>.from(_availableTags)..shuffle();
+      _newsListFutures = [];
+      _newsAPIListFutures = [];
+      for (int i = 0; i < valid.length; i++) {
+        final chosenTag = shuffledTags[i % shuffledTags.length];
+        _newsListFutures!.add(fetchNewsList(chosenTag));
+        _newsAPIListFutures!.add(fetchNewsAPIList(chosenTag));
       }
 
       setState(() {
@@ -173,11 +185,13 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> _onRefreshPressed() async {
+    // Resetto la cache (solo dei talk) e ricarico
     DataCache().clear();
     await _loadContent();
   }
 
-  /// Questo metodo ora chiama l’endpoint “NEWS” (c5palmnsv9…)
+  /// Metodo che chiama l’endpoint “NEWS” (c5palmnsv9…)
+  /// Usa il parametro `tag` (stringa, senza '#')
   Future<List<News>> fetchNewsList(String tag) async {
     final uri = Uri.parse(
       'https://2qu4468ttb.execute-api.us-east-1.amazonaws.com/default/Get_newsapi_by_tag',
@@ -193,13 +207,14 @@ class _HomePageState extends State<HomePage> {
     final List<News> result = [];
 
     if (data is List && data.isNotEmpty) {
-      // Prendo al massimo i primi 10 elementi
+      // Prendo al massimo il primo elemento (puoi cambiare “take(1)” se vuoi più articoli)
       final limitedData = data.take(1).toList();
 
       for (var item in limitedData) {
         if (item is Map<String, dynamic>) {
           final news = News.fromJson(item);
-          // Se non ho già un’immagine, la cerco sul sito
+
+          // Se non ho immagine, provo a ricavarla dal sito
           if (news.url.isNotEmpty &&
               (news.imageUrl == null || news.imageUrl!.isEmpty)) {
             final img = await _fetchArticleImage(news.url);
@@ -213,23 +228,19 @@ class _HomePageState extends State<HomePage> {
     return result;
   }
 
-  /// Questo metodo ora chiama l’endpoint “NEWSAPI” (w8mtzslj7l…)
+  /// Metodo che chiama l’endpoint “NEWSAPI” (w8mtzslj7l…)
+  /// Usa il parametro `tag` (stringa, senza '#')
   Future<List<NewsAPI>> fetchNewsAPIList(String tag) async {
-    // 1) URL dell’endpoint (stesso percorso, ma useremo POST con body JSON)
     final uri = Uri.parse(
       'https://ikzrooef8c.execute-api.us-east-1.amazonaws.com/default/Get_news_by_tag',
     );
-
-    // 2) Effettuiamo una POST e inviamo un JSON con campo "tags"
     final res = await http.post(
       uri,
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({'tags': tag}),
     );
-
     if (res.statusCode != 200) return [];
 
-    // 3) Decodifichiamo la risposta
     final decoded = jsonDecode(res.body);
     final List<NewsAPI> result = [];
 
@@ -238,21 +249,20 @@ class _HomePageState extends State<HomePage> {
         if (item is Map<String, dynamic>) {
           final news = NewsAPI.fromJson(item);
 
-          // Se non ho già un’immagine, la cerco sul sito
+          // Se non ho immagini, cerco nel sito
           if ((news.imageUrl == null || news.imageUrl!.isEmpty) &&
               news.url.isNotEmpty) {
             final img = await _fetchArticleImage(news.url);
             if (img != null) news.imageUrl = img;
           }
-
           result.add(news);
         }
       }
     }
-
     return result;
   }
 
+  /// Helper per estrarre un’immagine di anteprima da un articolo HTML
   Future<String?> _fetchArticleImage(String url) async {
     final resp = await http.get(Uri.parse(url));
     if (resp.statusCode != 200) return null;
@@ -332,83 +342,92 @@ class _HomePageState extends State<HomePage> {
           ),
           const SizedBox(height: 16),
 
-          // Content
+          // Contenuto principale
           Expanded(
             child:
                 _isLoadingTalk
                     ? const Center(child: CircularProgressIndicator())
-                    : ListView(
+                    : ListView.builder(
                       padding: const EdgeInsets.symmetric(horizontal: 16),
-                      children: [
-                        if (_talks != null && _talks!.isNotEmpty) ...[
-                          for (final t in _talks!) ...[
-                            Builder(
-                              builder: (_) {
-                                final mins =
-                                    DateTime.now()
-                                        .difference(t.createdAt)
-                                        .inMinutes;
-                                return Padding(
-                                  padding: const EdgeInsets.only(bottom: 16),
-                                  child: _buildTalkCard(t, mins),
-                                );
-                              },
-                            ),
-                          ],
-                        ] else
-                          const Padding(
-                            padding: EdgeInsets.symmetric(vertical: 16),
-                            child: Center(
-                              child: Text('Errore nel caricare i talk.'),
-                            ),
-                          ),
+                      itemCount: (_talks?.length ?? 0),
+                      itemBuilder: (ctx, index) {
+                        final talk = _talks![index];
+                        final mins =
+                            DateTime.now().difference(talk.createdAt).inMinutes;
 
-                        FutureBuilder<List<News>?>(
-                          future: _newsListFuture,
-                          builder: (ctx, snap) {
-                            if (snap.connectionState != ConnectionState.done) {
-                              return const Center(
-                                child: CircularProgressIndicator(),
-                              );
-                            }
-                            if (snap.hasError ||
-                                snap.data == null ||
-                                snap.data!.isEmpty) {
-                              return const Padding(
-                                padding: EdgeInsets.symmetric(vertical: 16),
-                                child: Center(
-                                  child: Text('Nessuna news disponibile.'),
-                                ),
-                              );
-                            }
-                            // Mostro il primo articolo di “News”
-                            return _buildNewsCard(snap.data!.first);
-                          },
-                        ),
-                        const SizedBox(height: 16),
-                        FutureBuilder<List<NewsAPI>?>(
-                          future: _newsAPIListFuture,
-                          builder: (ctx, snap) {
-                            if (snap.connectionState != ConnectionState.done) {
-                              return const Center(
-                                child: CircularProgressIndicator(),
-                              );
-                            }
-                            if (snap.hasError ||
-                                snap.data == null ||
-                                snap.data!.isEmpty) {
-                              return const Padding(
-                                padding: EdgeInsets.symmetric(vertical: 16),
-                                child: Center(
-                                  child: Text('Nessuna news disponibile.'),
-                                ),
-                              );
-                            }
-                            // Mostro il primo articolo di “NewsAPI”
-                            return _buildNewsAPICard(snap.data!.first);
-                          },
-                        ),
-                      ],
+                        return Column(
+                          children: [
+                            // 1) Card del Talk
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 16),
+                              child: _buildTalkCard(talk, mins),
+                            ),
+
+                            // 2) Card della prima News per il tag assegnato
+                            if (_newsListFutures != null)
+                              FutureBuilder<List<News>>(
+                                future: _newsListFutures![index],
+                                builder: (ctx, snap) {
+                                  if (snap.connectionState !=
+                                      ConnectionState.done) {
+                                    return const Center(
+                                      child: CircularProgressIndicator(),
+                                    );
+                                  }
+                                  if (snap.hasError ||
+                                      snap.data == null ||
+                                      snap.data!.isEmpty) {
+                                    return const Padding(
+                                      padding: EdgeInsets.symmetric(
+                                        vertical: 16,
+                                      ),
+                                      child: Center(
+                                        child: Text(
+                                          'Nessuna news disponibile.',
+                                        ),
+                                      ),
+                                    );
+                                  }
+                                  // Mostro la prima News
+                                  return _buildNewsCard(snap.data!.first);
+                                },
+                              ),
+                            const SizedBox(height: 16),
+
+                            // 3) Card della prima NewsAPI per lo stesso tag
+                            if (_newsAPIListFutures != null)
+                              FutureBuilder<List<NewsAPI>>(
+                                future: _newsAPIListFutures![index],
+                                builder: (ctx, snap) {
+                                  if (snap.connectionState !=
+                                      ConnectionState.done) {
+                                    return const Center(
+                                      child: CircularProgressIndicator(),
+                                    );
+                                  }
+                                  if (snap.hasError ||
+                                      snap.data == null ||
+                                      snap.data!.isEmpty) {
+                                    return const Padding(
+                                      padding: EdgeInsets.symmetric(
+                                        vertical: 16,
+                                      ),
+                                      child: Center(
+                                        child: Text(
+                                          'Nessuna news disponibile.',
+                                        ),
+                                      ),
+                                    );
+                                  }
+                                  // Mostro la prima NewsAPI
+                                  return _buildNewsAPICard(snap.data!.first);
+                                },
+                              ),
+
+                            const SizedBox(height: 24),
+                          ],
+                        );
+                      },
                     ),
           ),
         ],
@@ -563,6 +582,7 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _buildTalkCard(Talk talk, int minutesAgo) {
+    // Sostituisco “www.ted.com/talks/” con “embed.ted.com/talks/” per ottenere l’embed
     final embedUrl = talk.url.replaceFirst(
       'www.ted.com/talks/',
       'embed.ted.com/talks/',
@@ -577,7 +597,7 @@ class _HomePageState extends State<HomePage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header
+          // Header: avatar + nome speaker + tempo trascorso
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -657,13 +677,10 @@ class _HomePageState extends State<HomePage> {
           ),
 
           const SizedBox(height: 12),
-          SizedBox(
-            height: 200,
-            child: TalkVideoEmbed(url: embedUrl),
-          ), //,thumbnailUrl: 'https://logowik.com/content/uploads/images/tedx4450.jpg
+          SizedBox(height: 200, child: TalkVideoEmbed(url: embedUrl)),
           const SizedBox(height: 12),
 
-          // Footer icons
+          // Footer: like/comment (dummy)
           Row(
             children: [
               const Icon(Icons.favorite_border, color: Colors.white),
