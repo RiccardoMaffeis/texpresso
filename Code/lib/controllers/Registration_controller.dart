@@ -1,6 +1,8 @@
+// registration_controller.dart
+
+import 'package:amplify_auth_cognito/amplify_auth_cognito.dart';
 import 'package:flutter/material.dart';
 import 'package:amplify_flutter/amplify_flutter.dart';
-import 'package:amplify_auth_cognito/amplify_auth_cognito.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import '../models/registration_model.dart';
@@ -21,56 +23,60 @@ class RegistrationController {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
   }
 
-  /// Eseguito solo dopo la conferma del codice o login social
+  /// Eseguito subito dopo la conferma email
   Future<void> _afterSuccessfulConfirmation() async {
-    // Login automatico
     try {
       await Amplify.Auth.signIn(
-        username: model.username.trim(),
+        username: model.email.trim(),
         password: model.password,
       );
-    } catch (e) {
-      _showSnack('Login automatico fallito: $e');
+    } on AuthException catch (e) {
+      _showSnack('Login automatico fallito: ${e.message}');
+      return;
     }
 
     // Salva credenziali in secure storage
     await _secureStorage.write(key: 'email', value: model.email.trim());
     await _secureStorage.write(key: 'password', value: model.password);
 
-    // Naviga allo Swipe dei talk
     model.isLoading = false;
     update();
+
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(builder: (_) => const TalkSwipePage()),
     );
   }
 
-  /// Registra l’utente e mostra il form di conferma
+  /// Registra l’utente (inviando anche phone_number) e poi mostra la conferma email
   Future<void> signUp() async {
     model.isLoading = true;
     update();
 
+    // Componi il telefono in formato E.164
+    final fullPhoneNumber = '${model.countryCode}${model.phoneNumber.trim()}';
+
     try {
       await Amplify.Auth.signUp(
-        username: model.username.trim(),
+        username: model.email.trim(),
         password: model.password,
         options: SignUpOptions(
           userAttributes: {
-            CognitoUserAttributeKey.email: model.email.trim(),
-            CognitoUserAttributeKey.nickname: model.username.trim(),
+            AuthUserAttributeKey.email: model.email.trim(),
+            AuthUserAttributeKey.nickname: model.username.trim(),
+            AuthUserAttributeKey.phoneNumber: fullPhoneNumber,
           },
         ),
       );
 
-      // Mostra sempre step di conferma codice
+      // Mostra lo step di conferma email
       model.showConfirmationStep = true;
       model.isLoading = false;
       update();
     } on UsernameExistsException {
       model.isLoading = false;
       update();
-      _showSnack('Username o email già in uso');
+      _showSnack('Email già in uso');
     } on AuthException catch (e) {
       model.isLoading = false;
       update();
@@ -78,10 +84,10 @@ class RegistrationController {
     }
   }
 
-  /// Conferma il codice inviato via email
+  /// Conferma il codice inviato via email, quindi effettua login
   Future<void> confirmSignUp() async {
     if (model.confirmationCode.trim().isEmpty) {
-      _showSnack('Inserisci il codice di conferma');
+      _showSnack('Inserisci il codice di conferma email');
       return;
     }
 
@@ -89,17 +95,18 @@ class RegistrationController {
     update();
 
     try {
-      final res = await Amplify.Auth.confirmSignUp(
-        username: model.username.trim(),
+      final SignUpResult res = await Amplify.Auth.confirmSignUp(
+        username: model.email.trim(),
         confirmationCode: model.confirmationCode.trim(),
       );
       model.isLoading = false;
       update();
 
       if (res.isSignUpComplete) {
+        // Salto la verifica telefono, vado direttamente al login
         await _afterSuccessfulConfirmation();
       } else {
-        _showSnack('Conferma non completata');
+        _showSnack('Conferma email non completata');
       }
     } on AuthException catch (e) {
       model.isLoading = false;
@@ -108,7 +115,7 @@ class RegistrationController {
     }
   }
 
-  /// Login/signup via Google/Apple
+  /// Login/signup via Google/Apple (invariato)
   Future<void> socialSignUp(AuthProvider provider) async {
     model.isLoading = true;
     update();
@@ -119,8 +126,21 @@ class RegistrationController {
       update();
 
       if (res.isSignedIn) {
-        // Non abbiamo password, salviamo solo email
-        await _secureStorage.write(key: 'email', value: model.username.trim());
+        // Prelevo l'email dai userAttributes per salvarla
+        try {
+          final List<AuthUserAttribute> attrs = await Amplify.Auth.fetchUserAttributes();
+          final emailAttr = attrs.firstWhere(
+            (attr) => attr.userAttributeKey == AuthUserAttributeKey.email,
+            orElse: () => throw Exception('Email non trovata'),
+          );
+          await _secureStorage.write(
+            key: 'email',
+            value: emailAttr.value.trim(),
+          );
+        } catch (_) {
+          // se non c'è email, proseguo comunque
+        }
+
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (_) => const TalkSwipePage()),

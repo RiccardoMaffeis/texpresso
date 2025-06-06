@@ -32,7 +32,7 @@ class TalkService {
   /// Prende un singolo talk random dall’API, popola videoUrl e thumbnailUrl via Talk.fromJson
   Future<Talk> getRandomTalk() async {
     final uri = Uri.parse(
-      'https://y15uqmzsbi.execute-api.us-east-1.amazonaws.com/default/Get_talk_random',
+      'https://d0arirrg35.execute-api.us-east-1.amazonaws.com/default/Get_talk_random',
     );
     final response = await http.get(uri);
     if (response.statusCode != 200) {

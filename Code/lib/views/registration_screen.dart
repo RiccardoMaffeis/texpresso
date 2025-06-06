@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
 import 'package:amplify_flutter/amplify_flutter.dart';
 import '../models/registration_model.dart';
-import '../controllers/Registration_controller.dart';
+import '../controllers/registration_controller.dart';
 import 'login_screen.dart';
 
 class RegistrationScreen extends StatefulWidget {
@@ -22,11 +22,22 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   late final RegistrationModel _model;
   late final RegistrationController _controller;
 
+  // Lista di prefissi (Country Codes)
+  final List<String> _countryCodes = [
+    '+39', // Italia
+    '+1',  // USA/Canada
+    '+44', // Regno Unito
+    '+33', // Francia
+    '+49', // Germania
+    // … altri prefissi
+  ];
+
   @override
   void initState() {
     super.initState();
     _model = RegistrationModel();
     _controller = RegistrationController(model: _model, context: context);
+    _model.countryCode = _countryCodes.first; // default +39
   }
 
   @override
@@ -49,7 +60,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     }
   }
 
-  Future<void> _handleConfirm() async {
+  Future<void> _handleConfirmEmail() async {
     try {
       await _controller.confirmSignUp();
     } catch (e) {
@@ -62,7 +73,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   Widget build(BuildContext context) {
     final m = _model;
     return Scaffold(
-      backgroundColor: Color.fromARGB(255, 249, 221, 168),
+      backgroundColor: const Color.fromARGB(255, 249, 221, 168),
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
@@ -73,13 +84,16 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                 const SizedBox(height: 25),
                 Image.asset('lib/resources/Logo.png', width: 130, height: 130),
                 const SizedBox(height: 20),
-                Form(
-                  key: _formKey,
-                  child:
-                      m.showConfirmationStep
-                          ? _buildConfirmationForm()
-                          : _buildSignUpForm(),
-                ),
+
+                /// Parte di registrazione (username, email, telefono, password)
+                if (!m.showConfirmationStep)
+                  Form(
+                    key: _formKey,
+                    child: _buildSignUpForm(),
+                  ),
+
+                /// Se siamo nello step di conferma email, mostriamo il relativo campo
+                if (m.showConfirmationStep) _buildConfirmationForm(),
 
                 const SizedBox(height: 32),
                 _buildFooterLink(),
@@ -91,28 +105,88 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     );
   }
 
+  /// --- FORM DI REGISTRAZIONE ---
   Widget _buildSignUpForm() {
     return Column(
       children: [
+        // --- USERNAME ---
         _textField(
           hint: 'Username',
           onChanged: (v) => _model.username = v,
-          validator:
-              (v) =>
-                  v == null || v.trim().isEmpty
-                      ? 'Username obbligatorio'
-                      : null,
+          validator: (v) =>
+              v == null || v.trim().isEmpty ? 'Username obbligatorio' : null,
         ),
         const SizedBox(height: 16),
+
+        // --- EMAIL ---
         _textField(
           hint: 'email@domain.com',
           keyboardType: TextInputType.emailAddress,
           onChanged: (v) => _model.email = v,
-          validator:
-              (v) => v == null || !v.contains('@') ? 'Email non valida' : null,
+          validator: (v) =>
+              v == null || !v.contains('@') ? 'Email non valida' : null,
         ),
         const SizedBox(height: 16),
-        // Campo Password
+
+        // --- TELEFONO: DROPDOWN PREFISSI + CAMPO NUMERO ---
+        Row(
+          children: [
+            // Dropdown per i prefissi
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                border: Border.all(color: Colors.grey),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: DropdownButtonHideUnderline(
+                child: DropdownButton<String>(
+                  value: _model.countryCode,
+                  items: _countryCodes
+                      .map((code) => DropdownMenuItem(
+                            value: code,
+                            child: Text(code, style: const TextStyle(fontSize: 16)),
+                          ))
+                      .toList(),
+                  onChanged: (selected) {
+                    if (selected != null) {
+                      setState(() {
+                        _model.countryCode = selected;
+                      });
+                    }
+                  },
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: TextFormField(
+                keyboardType: TextInputType.phone,
+                decoration: const InputDecoration(
+                  hintText: 'Numero di telefono',
+                  filled: true,
+                  fillColor: Colors.white,
+                  contentPadding:
+                      EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.all(Radius.circular(8)),
+                    borderSide: BorderSide.none,
+                  ),
+                ),
+                onChanged: (v) => _model.phoneNumber = v,
+                validator: (v) {
+                  if (v == null || v.trim().isEmpty) {
+                    return 'Numero di telefono obbligatorio';
+                  }
+                  return null;
+                },
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+
+        // --- PASSWORD ---
         TextFormField(
           obscureText: _obscurePassword,
           decoration: InputDecoration(
@@ -148,14 +222,16 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
             return null;
           },
         ),
-
         const SizedBox(height: 16),
-        Text(
-          'La password deve essere di almeno 8 caratteri e contenere: \n1 maiuscola, 1 minuscola, 1 numero, 1 speciale',
-          style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+        const Text(
+          'La password deve essere di almeno 8 caratteri e contenere:\n'
+          '1 maiuscola, 1 minuscola, 1 numero, 1 carattere speciale',
+          style: TextStyle(color: Colors.grey, fontSize: 12),
+          textAlign: TextAlign.center,
         ),
         const SizedBox(height: 16),
-        // Campo Conferma Password
+
+        // --- CONFERMA PASSWORD ---
         TextFormField(
           obscureText: _obscureConfirmPassword,
           decoration: InputDecoration(
@@ -172,9 +248,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
             ),
             suffixIcon: IconButton(
               icon: Icon(
-                _obscureConfirmPassword
-                    ? Icons.visibility_off
-                    : Icons.visibility,
+                _obscureConfirmPassword ? Icons.visibility_off : Icons.visibility,
               ),
               onPressed: () {
                 setState(
@@ -190,30 +264,31 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
             return null;
           },
         ),
-
         const SizedBox(height: 24),
+
+        // --- PULSANTE CONTINUE ---
         SizedBox(
           width: double.infinity,
           height: 48,
-          child:
-              _model.isLoading
-                  ? const Center(child: CircularProgressIndicator())
-                  : ElevatedButton(
-                    onPressed: _handleSignUp,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFF37021),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                    ),
-                    child: const Text(
-                      'Continue',
-                      style: TextStyle(color: Colors.white, fontSize: 16),
+          child: _model.isLoading
+              ? const Center(child: CircularProgressIndicator())
+              : ElevatedButton(
+                  onPressed: _handleSignUp,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFF37021),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
                     ),
                   ),
+                  child: const Text(
+                    'Continue',
+                    style: TextStyle(color: Colors.white, fontSize: 16),
+                  ),
+                ),
         ),
         const SizedBox(height: 16),
 
+        // --- LINK A LOGIN SCREEN ---
         GestureDetector(
           onTap: () {
             Navigator.push(
@@ -230,16 +305,20 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
             ),
           ),
         ),
-
         const SizedBox(height: 20),
 
+        // --- SOCIAL BUTTONS ---
         _socialButtons(),
       ],
     );
   }
 
+  /// --- FORM DI CONFERMA EMAIL ---
   Widget _buildConfirmationForm() {
+    final m = _model;
+
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         const Text(
           'Controlla la tua email e inserisci il codice di conferma',
@@ -247,128 +326,140 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
           style: TextStyle(fontSize: 14, color: Colors.grey),
         ),
         const SizedBox(height: 16),
-        _textField(
-          hint: 'Codice di conferma',
+
+        // Codice conferma email
+        TextFormField(
           keyboardType: TextInputType.number,
+          decoration: InputDecoration(
+            hintText: 'Codice conferma email',
+            filled: true,
+            fillColor: Colors.white,
+            contentPadding: const EdgeInsets.symmetric(
+              vertical: 16,
+              horizontal: 20,
+            ),
+            border: const OutlineInputBorder(
+              borderRadius: BorderRadius.all(Radius.circular(8)),
+              borderSide: BorderSide.none,
+            ),
+          ),
           onChanged: (v) => _model.confirmationCode = v,
         ),
         const SizedBox(height: 24),
+
+        // Pulsante "Conferma"
         SizedBox(
           width: double.infinity,
           height: 48,
-          child:
-              _model.isLoading
-                  ? const Center(child: CircularProgressIndicator())
-                  : ElevatedButton(
-                    onPressed: _handleConfirm,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFF15A24),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                    ),
-                    child: const Text(
-                      'Conferma',
-                      style: TextStyle(fontSize: 16),
+          child: m.isLoading
+              ? const Center(child: CircularProgressIndicator())
+              : ElevatedButton(
+                  onPressed: _handleConfirmEmail,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFF15A24),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
                     ),
                   ),
+                  child: const Text(
+                    'Conferma',
+                    style: TextStyle(fontSize: 16, color: Colors.white),
+                  ),
+                ),
         ),
       ],
     );
   }
 
   Widget _socialButtons() => Column(
-    children: [
-      Row(
         children: [
-          const Expanded(
-            child: Divider(
-              thickness: 1,
-              color: Color.fromARGB(255, 148, 148, 148),
-            ),
-          ),
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 8),
-            child: Text(
-              'or',
-              style: TextStyle(
-                color: Color.fromARGB(255, 93, 93, 93),
-                fontSize: 14,
+          Row(
+            children: [
+              const Expanded(
+                child: Divider(
+                  thickness: 1,
+                  color: Color.fromARGB(255, 148, 148, 148),
+                ),
               ),
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 8),
+                child: Text(
+                  'or',
+                  style: TextStyle(
+                    color: Color.fromARGB(255, 93, 93, 93),
+                    fontSize: 14,
+                  ),
+                ),
+              ),
+              const Expanded(
+                child: Divider(
+                  thickness: 1,
+                  color: Color.fromARGB(255, 148, 148, 148),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
+          OutlinedButton.icon(
+            onPressed: () => _controller.socialSignUp(AuthProvider.google),
+            style: OutlinedButton.styleFrom(
+              backgroundColor: Colors.white,
+              side: const BorderSide(color: Colors.white),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8)),
+              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 20),
+            ),
+            icon: Image.asset('lib/resources/google-logo.png', width: 25),
+            label: const Text(
+              ' Continue with Google',
+              style: TextStyle(color: Colors.black),
             ),
           ),
-          const Expanded(
-            child: Divider(
-              thickness: 1,
-              color: Color.fromARGB(255, 148, 148, 148),
+          const SizedBox(height: 12),
+          OutlinedButton.icon(
+            onPressed: () => _controller.socialSignUp(AuthProvider.apple),
+            style: OutlinedButton.styleFrom(
+              backgroundColor: Colors.white,
+              side: const BorderSide(color: Colors.white),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8)),
+              padding: const EdgeInsets.symmetric(vertical: 11, horizontal: 22),
+            ),
+            icon: const Icon(Icons.apple, size: 30, color: Colors.black),
+            label: const Text(
+              ' Continue with Apple',
+              style: TextStyle(color: Colors.black),
             ),
           ),
         ],
-      ),
-      const SizedBox(height: 24),
-      OutlinedButton.icon(
-        onPressed: () => _controller.socialSignUp(AuthProvider.google),
-        style: OutlinedButton.styleFrom(
-          backgroundColor: Colors.white,
-          side: const BorderSide(color: Colors.white),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 20),
-        ),
-        icon: Image.asset('lib/resources/google-logo.png', width: 25),
-        label: const Text(
-          ' Continue with Google',
-          style: TextStyle(color: Colors.black),
-        ),
-      ),
-      const SizedBox(height: 12),
-
-      // Apple button
-      OutlinedButton.icon(
-        onPressed: () => _controller.socialSignUp(AuthProvider.apple),
-        style: OutlinedButton.styleFrom(
-          backgroundColor: Colors.white,
-          side: const BorderSide(color: Colors.white),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-          padding: const EdgeInsets.symmetric(vertical: 11, horizontal: 22),
-        ),
-        icon: const Icon(Icons.apple, size: 30, color: Colors.black),
-        label: const Text(
-          ' Continue with Apple',
-          style: TextStyle(color: Colors.black),
-        ),
-      ),
-    ],
-  );
+      );
 
   Widget _buildFooterLink() {
     final m = _model;
     return Text.rich(
       TextSpan(
-        text:
-            m.showConfirmationStep
-                ? 'Non hai ricevuto il codice? '
-                : 'By clicking sign up, you agree to our ',
+        text: m.showConfirmationStep
+            ? 'Non hai ricevuto il codice email? '
+            : 'By clicking sign up, you agree to our ',
         style: TextStyle(fontSize: 12, color: Colors.grey[800]),
         children: [
           TextSpan(
-            text:
-                m.showConfirmationStep ? 'Re-invia email' : 'Terms of Service',
+            text: m.showConfirmationStep ? 'Re-invia email' : 'Terms of Service',
             style: const TextStyle(
               decoration: TextDecoration.underline,
               color: Colors.blue,
             ),
-            recognizer:
-                _linkRecognizer
-                  ..onTap = () {
-                    if (m.showConfirmationStep) {
-                      Amplify.Auth.resendSignUpCode(
-                        username: m.username.trim(),
-                      );
-                      _showSnack('Codice reinviato');
-                    } else {
-                      // apri Terms di Service
-                    }
-                  },
+            recognizer: _linkRecognizer
+              ..onTap = () {
+                if (m.showConfirmationStep) {
+                  Amplify.Auth.resendSignUpCode(
+                    username: m.email.trim(),
+                  );
+                  _showSnack('Codice email reinviato');
+                } else {
+                  // apri Terms di Service
+                }
+              },
           ),
           if (!m.showConfirmationStep) ...[
             const TextSpan(text: ' and '),
