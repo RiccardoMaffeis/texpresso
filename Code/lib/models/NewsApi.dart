@@ -53,7 +53,7 @@ class NewsAPI {
       author: author,
       title: json['title']?.toString() ?? '',
       description: json['description']?.toString() ?? '',
-      url: json['link']?.toString() ?? '',
+      url: json['image_url']?.toString() ?? '',
       publishedAt: published,
       tags: flattenTags,
       imageUrl: json['image_url']?.toString(),

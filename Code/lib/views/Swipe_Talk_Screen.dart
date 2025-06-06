@@ -1,6 +1,7 @@
 // lib/views/talk_swipe_page.dart
 
 import 'dart:convert';
+import 'package:Texpresso/controllers/TimerConverter.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import '../views/home_screen.dart';
@@ -23,9 +24,12 @@ class _TalkSwipePageState extends State<TalkSwipePage> {
   Talk? _currentTalk;
   bool _isLoading = true;
   int _likeCount = 0;
-
-  /// Lista che raccoglie tutti i tag dei talk a cui l'utente ha messo 'Like'
-  final List<String> _selectedTags = [];
+  String get formattedTags {
+    if (_selectedTags.isEmpty) return '';
+    return _selectedTags.map((tag) => '#$tag').join(',') + ',';
+  }
+  /// Invece di una List, utilizziamo un Set per evitare duplicati
+  final Set<String> _selectedTags = {};
 
   @override
   void initState() {
@@ -51,7 +55,7 @@ class _TalkSwipePageState extends State<TalkSwipePage> {
   /// Richiama l'API per ottenere un Talk casuale
   Future<Talk?> _fetchRandomTalk() async {
     final uri = Uri.parse(
-      'https://d0arirrg35.execute-api.us-east-1.amazonaws.com/default/Get_talk_random',
+      'https://4qz8izwzth.execute-api.us-east-1.amazonaws.com/default/Get_random_random',
     );
     final response = await http.get(uri);
     if (response.statusCode != 200) {
@@ -79,7 +83,7 @@ class _TalkSwipePageState extends State<TalkSwipePage> {
   /// Chiamata quando l'utente preme il pulsante 'Like'
   void _onLike() {
     if (_currentTalk != null) {
-      // Aggiungo tutti i tag del talk corrente nella lista di selezionati
+      // Aggiungiamo i tag del talk corrente nel Set (evita duplicati)
       for (final tag in _currentTalk!.tags) {
         _selectedTags.add(tag);
       }
@@ -136,10 +140,12 @@ class _TalkSwipePageState extends State<TalkSwipePage> {
     }
   }
 
+  
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFE6D2B0),
+      backgroundColor: const Color(0xFFF9DDA8),
       body: SafeArea(
         child: Column(
           children: [
@@ -180,8 +186,7 @@ class _TalkSwipePageState extends State<TalkSwipePage> {
   }
 
   Widget _buildTalkCard(BuildContext context, Talk talk) {
-    final minutesAgo =
-        DateTime.now().difference(talk.createdAt).inMinutes;
+    final minutesAgo = DateTime.now().difference(talk.createdAt).inMinutes;
     final embedUrl = talk.url.replaceFirst(
       'www.ted.com/talks/',
       'embed.ted.com/talks/',
@@ -229,9 +234,9 @@ class _TalkSwipePageState extends State<TalkSwipePage> {
                   ),
                   const SizedBox(height: 12),
                   Text(
-                    '${talk.speakers} • $minutesAgo min ago',
-                    style: const TextStyle(
-                      color: Colors.white70,
+                    formatElapsed(minutesAgo),
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(0.8),
                       fontSize: 12,
                     ),
                   ),

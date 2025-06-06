@@ -17,6 +17,7 @@ dependencies:
   http: ^1.4.0
   html: ^0.15.6
   url_launcher: ^6.3.1
+  cached_network_image: ^3.4.1
   amplify_flutter: ^2.6.1
   amplify_auth_cognito: ^2.6.1
   flutter_secure_storage: ^8.0.0

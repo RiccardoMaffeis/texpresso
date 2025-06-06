@@ -1,3 +1,5 @@
+import 'package:Texpresso/models/SearchedTalk.dart';
+
 import '../models/talk.dart';
 import '../models/News.dart';
 import '../models/NewsAPI.dart';
@@ -9,6 +11,7 @@ class DataCache {
 
   List<Talk>? talks;
   List<Talk>? searchTalks;
+  List<Searchedtalk>? talktag;
   List<News>? newsList;
   List<NewsAPI>? newsAPIList;
 

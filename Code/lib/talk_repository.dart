@@ -1,5 +1,6 @@
 // lib/controllers/talk_service.dart
 
+import 'package:Texpresso/models/SearchedTalk.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:html/parser.dart' show parse;
@@ -31,8 +32,9 @@ class TalkService {
 
   /// Prende un singolo talk random dall’API, popola videoUrl e thumbnailUrl via Talk.fromJson
   Future<Talk> getRandomTalk() async {
+        print ('bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb');
     final uri = Uri.parse(
-      'https://d0arirrg35.execute-api.us-east-1.amazonaws.com/default/Get_talk_random',
+      'https://4qz8izwzth.execute-api.us-east-1.amazonaws.com/default/Get_random_random',
     );
     final response = await http.get(uri);
     if (response.statusCode != 200) {
@@ -71,7 +73,7 @@ class TalkService {
   /// Prende i talk "Watch Next" basati su un talk_id, tramite POST a un'altra Lambda
   Future<List<Talk>> getWatchNextById(String talkId) async {
     final uri = Uri.parse(
-      'https://5rp8yl6o4l.execute-api.us-east-1.amazonaws.com/default/Get_watchnext_by_ID',
+      'https://do7junyvy3.execute-api.us-east-1.amazonaws.com/default/Get_watchnext_by_ID',
     );
 
     // Corpo della richiesta JSON {"talk_id": "568452"}
@@ -142,4 +144,65 @@ class TalkService {
 
     return talks;
   }
+
+  Future<List<String>> fetchTalkIdsByTag(String tag) async {
+    const String url =
+        'https://cyjwr49z8d.execute-api.us-east-1.amazonaws.com/default/Get_Talk_by_Tag';
+
+    // Corpo della richiesta JSON
+    final Map<String, String> payload = {'tag': tag};
+
+    // Invio della richiesta POST
+    final http.Response response = await http.post(
+      Uri.parse(url),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode(payload),
+    );
+
+    if (response.statusCode == 200) {
+      // Decodifica del JSON di risposta
+      final List<dynamic> data = jsonDecode(response.body);
+
+      // Estrazione degli _id da ogni oggetto
+      return data
+          .where(
+            (item) => item is Map<String, dynamic> && item.containsKey('_id'),
+          )
+          .map<String>((item) => item['_id'].toString())
+          .toList();
+    } else {
+      // In caso di errore HTTP, lancia un’eccezione
+      throw Exception('Errore nella richiesta: ${response.statusCode}');
+    }
+  }
+
+  Future<List<Searchedtalk>> fetchTalksByTag(String tag) async {
+    print ('aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa');
+    const String url =
+        'https://cyjwr49z8d.execute-api.us-east-1.amazonaws.com/default/Get_Talk_by_Tag';
+
+    // 1) Preparo il payload JSON { "tag": "<ilTag>" }
+    final Map<String, String> payload = {'tag': tag};
+
+    // 2) Invio la POST
+    final http.Response response = await http.post(
+      Uri.parse(url),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode(payload),
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception('Errore nella richiesta: ${response.statusCode}');
+    }
+
+    // 3) Decodifico l'array di JSON
+    final List<dynamic> rawList = jsonDecode(response.body) as List<dynamic>;
+
+    // 4) Mappo ogni elemento in un oggetto SearchedTalk
+    return rawList
+        .cast<Map<String, dynamic>>()
+        .map((json) => Searchedtalk.fromJson(json))
+        .toList();
+  }
+
 }

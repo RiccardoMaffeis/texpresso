@@ -3,10 +3,13 @@
 import 'dart:convert';
 import 'dart:math';
 
+
+import 'package:Texpresso/controllers/TagReceiver.dart';
 import 'package:Texpresso/models/News.dart';
 import 'package:Texpresso/models/NewsAPI.dart';
 import 'package:Texpresso/views/profile_screen.dart';
 import 'package:flutter/material.dart';
+import 'package:html/dom.dart' as dom;
 import 'package:html/parser.dart' show parse;
 import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
@@ -15,6 +18,8 @@ import '../models/talk.dart';
 import '../models/data_cache.dart';
 import '../views/BottomNavBar.dart';
 import '../controllers/BottomNavBarController.dart';
+import '../controllers/TimerConverter.dart';
+import '../controllers/TagReceiver.dart';
 import '../controllers/Talk_Video_Controller.dart';
 import '../talk_repository.dart'; // per fetchTalkVideo
 
@@ -44,25 +49,20 @@ class _HomePageState extends State<HomePage> {
 
   // --------------------------------------------------------------------------
   // 5) Stringa di tag: a questo punto puoi espandere con altri tag separati da virgola
-  final String tagString =
-      "#culture, #ai, #education, #science, #technology, #health";
+
+   
 
   // 6) Lista dei singoli tag (senza '#'), ricavata da tagString e “shufflata”
-  late List<String> _availableTags;
+  late Future<List<String>> _availableTags = TagReceiver.fetchAvailableTags();
 
   @override
   void initState() {
     super.initState();
     // Divido tagString in lista di tag (rimuovendo il simbolo '#')
-    _availableTags =
-        tagString
-            .split(',')
-            .map((t) => t.trim().replaceFirst('#', ''))
-            .toList();
     _maybeLoadFromCache();
   }
 
-  void _maybeLoadFromCache() {
+  Future<void> _maybeLoadFromCache() async {
     final cache = DataCache();
 
     if (cache.talks != null && cache.talks!.isNotEmpty) {
@@ -73,7 +73,7 @@ class _HomePageState extends State<HomePage> {
       // Preparo le Future per le News:
       // - Mescolo i tag (_availableTags)
       // - Prendo tanti tag quanti sono i talk (o ripeto ciclicamente se i tag sono meno)
-      final shuffledTags = List<String>.from(_availableTags)..shuffle();
+      final shuffledTags = List<String>.from(await _availableTags)..shuffle();
       _newsListFutures = [];
       _newsAPIListFutures = [];
 
@@ -93,9 +93,15 @@ class _HomePageState extends State<HomePage> {
   Future<void> _loadContent() async {
     setState(() => _isLoadingTalk = true);
     try {
-      const String fixedTalkId = '563142';
+      // Get the list of available tags and pick a random one
+      final tags = await TagReceiver.fetchAvailableTags();
+      final randomTag = tags.isNotEmpty ? (tags..shuffle()).first : '';
+      final talkService = TalkService();
+      final List<String> talkIds = await talkService.fetchTalkIdsByTag(randomTag);
+      int casual = Random().nextInt(talkIds.length);
+      final String fixedTalkId = talkIds[casual-1];
       final uri = Uri.parse(
-        'https://h18wuxhuy1.execute-api.us-east-1.amazonaws.com/default/Get_Watch_Next_By_Idx',
+        'https://do7junyvy3.execute-api.us-east-1.amazonaws.com/default/Get_watchnext_by_ID',
       );
       final response = await http.post(
         uri,
@@ -163,11 +169,12 @@ class _HomePageState extends State<HomePage> {
       // 2) Preparo le Future per le News:
       //    - Mescolo i tag disponibili
       //    - Per ogni talk assegno un tag diverso (o se i tag finiscono, riciclo ciclicamente)
-      final shuffledTags = List<String>.from(_availableTags)..shuffle();
+      final shuffledTags = List<String>.from(await _availableTags)..shuffle();
       _newsListFutures = [];
       _newsAPIListFutures = [];
       for (int i = 0; i < valid.length; i++) {
         final chosenTag = shuffledTags[i % shuffledTags.length];
+        print('aaaaaaaaaaaaaaaaaaaaaaaaa:' + chosenTag);
         _newsListFutures!.add(fetchNewsList(chosenTag));
         _newsAPIListFutures!.add(fetchNewsAPIList(chosenTag));
       }
@@ -194,7 +201,7 @@ class _HomePageState extends State<HomePage> {
   /// Usa il parametro `tag` (stringa, senza '#')
   Future<List<News>> fetchNewsList(String tag) async {
     final uri = Uri.parse(
-      'https://2qu4468ttb.execute-api.us-east-1.amazonaws.com/default/Get_newsapi_by_tag',
+      'https://kpra9qrooj.execute-api.us-east-1.amazonaws.com/default/Get_newsapi_by_tag',
     );
     final res = await http.post(
       uri,
@@ -232,7 +239,7 @@ class _HomePageState extends State<HomePage> {
   /// Usa il parametro `tag` (stringa, senza '#')
   Future<List<NewsAPI>> fetchNewsAPIList(String tag) async {
     final uri = Uri.parse(
-      'https://ikzrooef8c.execute-api.us-east-1.amazonaws.com/default/Get_news_by_tag',
+      'https://qekwgkp3k9.execute-api.us-east-1.amazonaws.com/default/Get_news_by_tag',
     );
     final res = await http.post(
       uri,
@@ -252,7 +259,7 @@ class _HomePageState extends State<HomePage> {
           // Se non ho immagini, cerco nel sito
           if ((news.imageUrl == null || news.imageUrl!.isEmpty) &&
               news.url.isNotEmpty) {
-            final img = await _fetchArticleImage(news.url);
+            final img = await fetchFirstBodyImage(news.url);
             if (img != null) news.imageUrl = img;
           }
           result.add(news);
@@ -275,18 +282,30 @@ class _HomePageState extends State<HomePage> {
     return img?.attributes['src'];
   }
 
-  String _formatElapsed(int mins) {
-    if (mins < 60) return '$mins minutes ago';
-    final h = mins ~/ 60;
-    if (h < 24) return '$h hours ago';
-    final d = h ~/ 24;
-    if (d < 7) return '$d days ago';
-    final w = d ~/ 7;
-    if (w < 4) return '$w weeks ago';
-    final m = d ~/ 30;
-    if (m < 12) return '$m months ago';
-    return '${d ~/ 365} years ago';
-  }
+Future<String?> fetchFirstBodyImage(String pageUrl) async {
+  // 1. Scarica l’HTML
+  final resp = await http.get(Uri.parse(pageUrl));
+  if (resp.statusCode != 200) return null;
+
+  // 2. Parsing HTML
+  final dom.Document doc = parse(resp.body);
+
+  // 3. Trova il primo <img> nel <body>
+  final dom.Element? imgEl = doc.querySelector('body img');
+  if (imgEl == null) return null;
+
+  // 4. Estrai l’attributo src
+  final rawSrc = imgEl.attributes['src'];
+  if (rawSrc == null || rawSrc.trim().isEmpty) return null;
+
+  // 5. Risolvi un eventuale URL relativo
+  final Uri uriPage = Uri.parse(pageUrl);
+  final Uri uriImg = Uri.parse(rawSrc.trim());
+  final Uri absoluteUri = uriImg.hasScheme ? uriImg : uriPage.resolveUri(uriImg);
+
+  return absoluteUri.toString();
+}
+  
 
   Future<void> _launchUrl(String url) async {
     final uri = Uri.parse(url);
@@ -540,13 +559,14 @@ class _HomePageState extends State<HomePage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (news.imageUrl?.isNotEmpty == true) ...[
+            
             ClipRRect(
               borderRadius: BorderRadius.circular(12),
               child: Image.network(
                 news.imageUrl!,
-                height: 180,
+                height: 230,
                 width: double.infinity,
-                fit: BoxFit.cover,
+                fit: BoxFit.contain,
               ),
             ),
             const SizedBox(height: 12),
@@ -620,7 +640,7 @@ class _HomePageState extends State<HomePage> {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        _formatElapsed(minutesAgo),
+                        formatElapsed(minutesAgo),
                         style: TextStyle(
                           color: Colors.white.withOpacity(0.8),
                           fontSize: 12,
