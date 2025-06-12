@@ -6,16 +6,16 @@ const amplifyconfig = '''{
       "awsCognitoAuthPlugin": {
         "CognitoUserPool": {
           "Default": {
-            "PoolId": "us-east-1_DRsIGawRO",
-            "AppClientId": "2enbhg86siai6u0b00r394urk5",
+            "PoolId": "us-east-1_GM7zn39Cg",
+            "AppClientId": "4fd6vhkkp330jr04andvtg71uo",
             "Region": "us-east-1"
           }
         },
         "Auth": {
           "Default": {
             "OAuth": {
-              "WebDomain": "https://us-east-1drsigawro.auth.us-east-1.amazoncognito.com",
-              "AppClientId": "2enbhg86siai6u0b00r394urk5",
+              "WebDomain": "https://us-east-1_GM7zn39Cg.auth.us-east-1.amazoncognito.com",
+              "AppClientId": "4fd6vhkkp330jr04andvtg71uo",
               "SignInRedirectURI": "texpresso://callback/",
               "SignOutRedirectURI": "texpresso://callback/",
               "Scopes": ["openid","email"]

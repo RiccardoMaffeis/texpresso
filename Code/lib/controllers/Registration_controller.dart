@@ -62,8 +62,8 @@ class RegistrationController {
         password: model.password,
         options: SignUpOptions(
           userAttributes: {
+            AuthUserAttributeKey.nickname: model.nickname.trim(),
             AuthUserAttributeKey.email: model.email.trim(),
-            AuthUserAttributeKey.nickname: model.username.trim(),
             AuthUserAttributeKey.phoneNumber: fullPhoneNumber,
           },
         ),

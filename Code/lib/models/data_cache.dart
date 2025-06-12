@@ -15,6 +15,9 @@ class DataCache {
   List<News>? newsList;
   List<NewsAPI>? newsAPIList;
 
+  List<List<News>>? newsCache;
+  List<List<NewsAPI>>? newsAPICache;
+
   void clear() {
     talks = null;
     newsList = null;

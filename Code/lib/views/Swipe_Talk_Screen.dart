@@ -54,8 +54,9 @@ class _TalkSwipePageState extends State<TalkSwipePage> {
 
   /// Richiama l'API per ottenere un Talk casuale
   Future<Talk?> _fetchRandomTalk() async {
+    print("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa - fetch random talk");
     final uri = Uri.parse(
-      'https://4qz8izwzth.execute-api.us-east-1.amazonaws.com/default/Get_random_random',
+      'https://j6319yue94.execute-api.us-east-1.amazonaws.com/default/Get_talk_random',
     );
     final response = await http.get(uri);
     if (response.statusCode != 200) {

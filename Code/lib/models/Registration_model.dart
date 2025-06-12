@@ -1,5 +1,5 @@
 class RegistrationModel {
-  String username;
+  String nickname;
   String email;
   String password;
   String confirmPassword;
@@ -12,7 +12,7 @@ class RegistrationModel {
   bool showPhoneConfirmationStep;
 
   RegistrationModel({
-    this.username = '',
+    this.nickname = '',
     this.email = '',
     this.password = '',
     this.confirmPassword = '',

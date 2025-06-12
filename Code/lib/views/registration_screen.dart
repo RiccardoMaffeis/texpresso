@@ -112,7 +112,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
         // --- USERNAME ---
         _textField(
           hint: 'Username',
-          onChanged: (v) => _model.username = v,
+          onChanged: (v) => _model.nickname = v,
           validator: (v) =>
               v == null || v.trim().isEmpty ? 'Username obbligatorio' : null,
         ),
