@@ -1,13 +1,10 @@
 // lib/views/home_page.dart
 
-import 'dart:convert';
 import 'package:Texpresso/controllers/TagReceiver.dart';
 import 'package:Texpresso/controllers/Talk_Video_Controller.dart';
 import 'package:flutter/material.dart';
-import 'package:html/parser.dart' show parse;
 import 'package:Texpresso/controllers/home_controller.dart';
 import 'package:Texpresso/views/UserProfile_screen.dart';
-import 'package:url_launcher/url_launcher.dart';
 import '../models/Talk.dart';
 import '../models/News.dart';
 import '../models/NewsAPI.dart';

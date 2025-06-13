@@ -2,7 +2,6 @@
 
 import 'package:Texpresso/controllers/UserProfile_controller.dart';
 import 'package:flutter/material.dart';
-import 'package:amplify_flutter/amplify_flutter.dart';
 import 'Login_screen.dart';
 import 'home_screen.dart';
 

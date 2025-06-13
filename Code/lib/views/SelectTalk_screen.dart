@@ -6,9 +6,7 @@ import 'package:flutter/material.dart';
 // Removed duplicate/conflicting import: '../controllers/Selecttalk_controller.dart';
 import '../models/talk.dart';
 import '../views/home_screen.dart';
-import '../controllers/TimerConverter.dart';
-import 'package:amplify_flutter/amplify_flutter.dart';
-import 'package:fl_chart/fl_chart.dart'; // se ti serve per il video embed
+// se ti serve per il video embed
 
 class SelectTalkPage extends StatefulWidget {
   const SelectTalkPage({Key? key}) : super(key: key);
