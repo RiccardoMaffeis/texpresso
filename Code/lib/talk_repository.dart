@@ -4,7 +4,7 @@ import 'package:Texpresso/models/SearchedTalk.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:html/parser.dart' show parse;
-import '../models/talk.dart';
+import 'models/Talk.dart';
 
 class TalkService {
   /// Estrae l’URL del video dalla pagina del talk
@@ -36,7 +36,7 @@ class TalkService {
       'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
     );
     final uri = Uri.parse(
-      'https://j6319yue94.execute-api.us-east-1.amazonaws.com/default/Get_talk_random',
+      'https://2ep0s4jj1d.execute-api.us-east-1.amazonaws.com/default/Get_talk_random',
     );
     final response = await http.get(uri);
     if (response.statusCode != 200) {
@@ -75,7 +75,7 @@ class TalkService {
   /// Prende i talk "Watch Next" basati su un talk_id, tramite POST a un'altra Lambda
   Future<List<Talk>> getWatchNextById(String talkId) async {
     final uri = Uri.parse(
-      'https://6kspim0kkh.execute-api.us-east-1.amazonaws.com/default/Get_watchnext_by_ID',
+      'https://jlguvdeu70.execute-api.us-east-1.amazonaws.com/default/Get_watchnext_by_ID',
     );
 
     // Corpo della richiesta JSON {"talk_id": "568452"}
@@ -149,7 +149,7 @@ class TalkService {
 
   Future<List<String>> fetchTalkIdsByTag(String tag) async {
     const String url =
-        'https://oc1dvj39qf.execute-api.us-east-1.amazonaws.com/default/Get_talk_by_tag';
+        'https://rnf192ato1.execute-api.us-east-1.amazonaws.com/default/Get_Talk_by_Tag';
 
     // Corpo della richiesta JSON
     final Map<String, String> payload = {'tag': tag};
@@ -178,12 +178,12 @@ class TalkService {
     }
   }
 
-  Future<List<Searchedtalk>> fetchTalksByTag(String tag) async {
+  Future<List<SearchedTalk>> fetchTalksByTag(String tag) async {
     print(
       'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
     );
     const String url =
-        'https://oc1dvj39qf.execute-api.us-east-1.amazonaws.com/default/Get_talk_by_tag';
+        'https://rnf192ato1.execute-api.us-east-1.amazonaws.com/default/Get_Talk_by_Tag';
 
     // 1) Preparo il payload JSON { "tag": "<ilTag>" }
     final Map<String, String> payload = {'tag': tag};
@@ -205,7 +205,7 @@ class TalkService {
     // 4) Mappo ogni elemento in un oggetto SearchedTalk
     return rawList
         .cast<Map<String, dynamic>>()
-        .map((json) => Searchedtalk.fromJson(json))
+        .map((json) => SearchedTalk.fromJson(json))
         .toList();
   }
 }

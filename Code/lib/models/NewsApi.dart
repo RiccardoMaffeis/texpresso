@@ -59,4 +59,6 @@ class NewsAPI {
       imageUrl: json['image_url']?.toString(),
     );
   }
+
+  get urlToImage => null;
 }

@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 
 // Importa qui tutte le tue pagine
 import '../views/home_screen.dart';
-import '../views/search_screen.dart';
+import '../views/Search_screen.dart';
 import '../views/trends_screen.dart';
 import '../views/Feed_screen.dart'; // Sostituisci con la tua quarta pagina
 // ...altre pagine

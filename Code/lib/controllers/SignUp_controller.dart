@@ -5,8 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:amplify_flutter/amplify_flutter.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
-import '../models/registration_model.dart';
-import '../views/Swipe_Talk_Screen.dart';
+import '../models/Signup_model.dart';
+import '../views/SelectTalk_Screen.dart';
 
 class RegistrationController {
   final RegistrationModel model;
@@ -44,7 +44,7 @@ class RegistrationController {
 
     Navigator.pushReplacement(
       context,
-      MaterialPageRoute(builder: (_) => const TalkSwipePage()),
+      MaterialPageRoute(builder: (_) => const SelectTalkPage()),
     );
   }
 
@@ -143,7 +143,7 @@ class RegistrationController {
 
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (_) => const TalkSwipePage()),
+          MaterialPageRoute(builder: (_) => const SelectTalkPage()),
         );
       } else {
         _showSnack('Registrazione social non completata');

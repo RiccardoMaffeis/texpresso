@@ -1,4 +1,4 @@
-class Searchedtalk {
+class SearchedTalk {
   final String id;
   final String slug;
   final String speakers;
@@ -11,7 +11,7 @@ class Searchedtalk {
   final List<String> tags;
   final List<String> comprehendAnalysis;
 
-  Searchedtalk({
+  SearchedTalk({
     required this.id,
     required this.slug,
     required this.speakers,
@@ -25,7 +25,7 @@ class Searchedtalk {
     required this.comprehendAnalysis,
   });
 
-  factory Searchedtalk.fromJson(Map<String, dynamic> json) => Searchedtalk(
+  factory SearchedTalk.fromJson(Map<String, dynamic> json) => SearchedTalk(
     id: json['_id'] as String,
     slug: json['slug'] as String,
     speakers: json['speakers'] as String,

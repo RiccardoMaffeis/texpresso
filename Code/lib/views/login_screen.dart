@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:amplify_flutter/amplify_flutter.dart';
-import '../views/Registration_screen.dart';
+import '../views/SignUp_screen.dart';
 import '../views/home_screen.dart';
 import '../models/login_model.dart';
 import '../controllers/login_controller.dart';
